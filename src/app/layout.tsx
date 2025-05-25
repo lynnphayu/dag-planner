@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inconsolata } from "next/font/google";
+import { ThemeProvider } from "next-themes";
+import { ModeToggle } from "@/components/theme-swticher";
+import { I18nProvider } from "@/components/i18n-provider";
+import { Toaster } from "@/components/ui/sonner";
+import "@/i18n";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const inconsolata = Inconsolata({
+  variable: "--font-inconsolata",
 });
 
 export const metadata: Metadata = {
@@ -23,11 +22,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inconsolata.variable} antialiased`}
+        style={{ margin: 0, padding: 0 }}
       >
-        {children}
+        <I18nProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            disableTransitionOnChange
+          >
+            <div className="absolute right-4 top-4 z-10">
+              <ModeToggle />
+            </div>
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </I18nProvider>
       </body>
     </html>
   );
