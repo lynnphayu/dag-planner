@@ -1,6 +1,6 @@
 "use client";
-import { FlowComponent } from "@/components/flow-editor";
-import { StepForm } from "@/components/step-form";
+import { FlowComponent } from "@/components/flow/flow-editor";
+import { StepForm } from "@/components/forms/step-form";
 import {
   SheetContent,
   SheetHeader,

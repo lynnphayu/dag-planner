@@ -13,22 +13,30 @@ import {
 } from "@xyflow/react";
 
 import "@xyflow/react/dist/style.css";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { Plus, LayoutGrid } from "lucide-react";
-import CustomNode from "./custom-node";
-import InputNode from "./input-node";
-import OutputNode from "./output-node";
-import { MouseEvent, useCallback } from "react";
+import { InputNode, OutputNode, StepNode } from "../nodes";
+import { MouseEvent, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { GRID_SIZE } from "@/config/api";
+import { GRID_SIZE } from "@/config/node";
 
-const nodeTypes = {
-  CustomNode: CustomNode,
-  InputNode: InputNode,
-  OutputNode: OutputNode,
-};
+// Create node types with props
+const createNodeTypes = (
+  openSheet: (id: string) => void,
+  removeNode: (id: string) => void
+) => ({
+  CustomNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
+    <StepNode {...props} onEdit={openSheet} removeNode={removeNode} />
+  ),
+  InputNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
+    <InputNode {...props} onEdit={openSheet} />
+  ),
+  OutputNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
+    <OutputNode {...props} onEdit={openSheet} />
+  ),
+});
 
 export function FlowComponent() {
   const { theme } = useTheme();
@@ -48,7 +56,15 @@ export function FlowComponent() {
     setDAG,
     dag,
     getNodes,
+    openSheet,
+    removeNode,
   } = useFlowStore();
+
+  // Create node types with the required functions
+  const nodeTypes = useMemo(
+    () => createNodeTypes(openSheet, removeNode),
+    [openSheet, removeNode]
+  );
 
   const onDragStop: OnNodeDrag<Node<NodeData>> = (
     event: MouseEvent,

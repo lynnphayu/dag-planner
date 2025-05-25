@@ -35,7 +35,7 @@ import { X } from "lucide-react";
 import { NodeData } from "@/store/flow-store";
 import { Edge, Node } from "@xyflow/react";
 import { toast } from "sonner";
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import { ConditionParams, DAGModel, useDAGMutations } from "@/hooks/use-dag";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -75,6 +75,7 @@ const JoinType = z.enum(["inner", "left", "right"]);
 
 const BaseStepSchema = z.object({
   id: z.string(),
+  name: z.string().min(1, "Name is required"),
   then: z.array(z.string()).optional(),
   dependsOn: z.array(z.string()).optional(),
 });
@@ -276,10 +277,8 @@ export function StepForm({
 
   async function onSubmit(values: z.output<typeof stepSchema>) {
     try {
-      console.log(values);
       updateNode(step.id, values);
       const dag = getDag();
-      console.log(dag);
       if (!dag) return;
       if (dag?.id) {
         await updateDAG(dag.id, dag);
@@ -298,21 +297,15 @@ export function StepForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
-          name="id"
+          name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Step ID</FormLabel>
+              <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input
-                  placeholder="Enter step ID"
-                  {...field}
-                  autoFocus={false}
-                  autoComplete="off"
-                  tabIndex={-1}
-                />
+                <Input placeholder="Enter step name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -410,7 +403,8 @@ export function StepForm({
                   .filter(
                     (node) =>
                       node.id !== step.id &&
-                      !outgoingEdges.some((e) => e.target === node.id)
+                      !outgoingEdges.some((e) => e.target === node.id) &&
+                      node.id !== "input"
                   )
                   .map((node) => (
                     <SelectItem key={node.id} value={node.id}>
@@ -464,7 +458,8 @@ export function StepForm({
                       node.id !== step.id &&
                       !incomingEdges.some((e) => e.source === node.id) &&
                       !step.data.then?.includes(node.id) &&
-                      !(step.data as ConditionParams).else?.includes(node.id)
+                      !(step.data as ConditionParams).else?.includes(node.id) &&
+                      node.id !== "input"
                   )
                   .map((node) => (
                     <SelectItem key={node.id} value={node.id}>

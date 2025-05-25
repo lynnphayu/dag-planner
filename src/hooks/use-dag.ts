@@ -1,10 +1,11 @@
 import useSWR, { useSWRConfig } from "swr";
 import { Node, Edge } from "@xyflow/react";
 import { NodeData } from "@/store/flow-store";
-import { Operator, StepType } from "@/components/step-form";
+
 import { z } from "zod";
 import { API_CONFIG } from "@/config/api";
 import { toast } from "sonner";
+import { Operator, StepType } from "@/components/forms/step-form";
 
 export interface DAG {
   id: string;
@@ -119,7 +120,7 @@ export interface DAGModel {
   id: string;
   steps: Step[];
   inputSchema: Record<string, unknown>;
-  outputSchema: Record<string, unknown>;
+  // outputSchema: Record<string, unknown>;
 }
 
 const fetcher = async (url: string) => {

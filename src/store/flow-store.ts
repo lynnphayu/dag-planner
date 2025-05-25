@@ -10,13 +10,14 @@ import {
   OnEdgesChange,
 } from "@xyflow/react";
 import { z } from "zod";
+
+import { ConditionParams, DAGModel } from "@/hooks/use-dag";
+import { GRID_SIZE, NODE_PREF } from "@/config/node";
 import {
   InputParamsSchema,
   stepSchema,
   StepType,
-} from "@/components/step-form";
-import { ConditionParams, DAGModel } from "@/hooks/use-dag";
-import { GRID_SIZE, NODE_PREF } from "@/config/api";
+} from "@/components/forms/step-form";
 export type NodeData = z.infer<typeof stepSchema>;
 
 interface FlowState {
@@ -97,7 +98,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       });
 
       // Add edges and process child nodes
-      if (step.then) {
+      if (step.then)
         step.then.forEach((targetId, index) => {
           edges.push({
             id: `edge-${step.id}-${targetId}`,
@@ -107,7 +108,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
           // Position child nodes in next column, with offset based on index
           positionNode(targetId, column + 1, row + index);
         });
-      }
+
       if (step.type === "condition" && (step as ConditionParams).else) {
         (step as ConditionParams).else?.forEach((targetId, index) => {
           edges.push({
@@ -181,15 +182,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
   updateNode: (nodeId: string, data: NodeData) => {
     const { nodes, dag } = get();
+    const newNodes = nodes.map((n) => (n.id === nodeId ? { ...n, data } : n));
+    const newSteps = dag?.steps.map((step) =>
+      step.id === nodeId ? { ...step, ...data } : step
+    );
     set({
-      nodes: nodes.map((n) => (n.id === nodeId ? { ...n, data } : n)),
-      dag: {
-        ...dag,
-        steps:
-          dag?.steps.map((step) =>
-            step.id === nodeId ? { ...step, ...data } : step
-          ) || [],
-      } as DAGModel,
+      nodes: newNodes,
+      dag: { ...dag, steps: newSteps } as DAGModel,
     });
   },
 
@@ -268,7 +267,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       detectCollision({
         id: "temp",
         position: pos,
-        data: { id: "", table: "", type: "query", select: [] },
+        data: {
+          id: crypto.randomUUID(),
+          table: "",
+          name: "",
+          type: "query",
+          select: [],
+        },
         ...NODE_PREF,
       })
     ) {
@@ -286,8 +291,9 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       id: `new-${nodes.length}`,
       position: pos,
       data: {
-        id: `new-${nodes.length}`,
+        id: crypto.randomUUID(),
         table: "",
+        name: "",
         type: StepType.enum.query,
         select: [],
       },
