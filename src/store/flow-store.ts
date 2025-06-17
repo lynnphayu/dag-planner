@@ -24,11 +24,12 @@ interface FlowState {
   dag: DAGModel | null;
   getDag: () => DAGModel | null;
   setDAG: (dag: DAGModel) => void;
+  initializeNewDAG: (id: string, inputSchema?: Record<string, unknown>) => void;
   nodes: Node<NodeData>[];
   edges: { id: string; source: string; target: string }[];
   isSheetOpen: boolean;
   selectedNodeId: string | null;
-  selectedNode: Node<NodeData> | null;
+  selectedNode: () => Node<NodeData> | null;
   setNodes: (nodes: Node<NodeData>[]) => void;
   setEdges: (edges: { id: string; source: string; target: string }[]) => void;
   addNode: () => void;
@@ -57,7 +58,10 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   dag: null,
   isSheetOpen: false,
   selectedNodeId: null,
-  selectedNode: null,
+  selectedNode: () => {
+    const { nodes, selectedNodeId } = get();
+    return nodes.find((n) => n.id === selectedNodeId) || null;
+  },
   onNodesChange: (changes: NodeChange<Node<NodeData>>[]) =>
     set({ nodes: applyNodeChanges<Node<NodeData>>(changes, get().nodes) }),
   onEdgesChange: (changes: EdgeChange[]) => {
@@ -174,6 +178,41 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     newNodes.push(...nodes);
 
     set({ nodes: newNodes, edges, dag });
+  },
+
+  initializeNewDAG: (id: string, inputSchema = {}) => {
+    const newDAG: DAGModel = {
+      id,
+      name: id,
+      description: "",
+      steps: [],
+      inputSchema,
+    };
+
+    const inputNode: Node<NodeData> = {
+      id: "input",
+      position: { x: 0, y: 0 },
+      data: {
+        id: "input",
+        type: "input",
+        schema: inputSchema,
+      } as NodeData,
+      ...NODE_PREF,
+      type: "InputNode" as string | undefined,
+      style: {
+        ...NODE_PREF.style,
+        backgroundColor: "var(--primary)",
+        color: "var(--primary-foreground)",
+      },
+    };
+
+    set({
+      dag: newDAG,
+      nodes: [inputNode],
+      edges: [],
+      isSheetOpen: false,
+      selectedNodeId: null,
+    });
   },
 
   addEdge: (edge: Edge) => {
@@ -314,7 +353,6 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     set({
       isSheetOpen: true,
       selectedNodeId: nodeId,
-      selectedNode: get().nodes.find((n) => n.id === nodeId),
     }),
   closeSheet: () => set({ isSheetOpen: false, selectedNodeId: null }),
 
@@ -325,6 +363,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     // const outputNode = nodes.find((n) => n.id === "output");
     return {
       id: dag.id,
+      name: dag.name,
+      description: dag.description,
       steps: nodes
         .filter((n) => n.id !== "input")
         .map((n) => n.data) as NodeData[],

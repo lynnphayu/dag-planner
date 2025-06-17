@@ -75,7 +75,7 @@ const JoinType = z.enum(["inner", "left", "right"]);
 
 const BaseStepSchema = z.object({
   id: z.string(),
-  name: z.string().min(1, "Name is required"),
+  name: z.string().optional(),
   then: z.array(z.string()).optional(),
   dependsOn: z.array(z.string()).optional(),
 });
@@ -139,7 +139,12 @@ const DbOperationParamsSchema = z.object({
 // Define the params schemas
 const QueryParamsSchema = DbOperationParamsSchema.extend({
   type: z.literal("query"),
-  select: z.array(z.string()).optional(),
+  select: z
+    .union([
+      z.string().transform((val) => val.split(",").map((s) => s.trim())),
+      z.array(z.string()),
+    ])
+    .optional(),
 }).merge(BaseStepSchema);
 
 const InsertParamsSchema = DbOperationParamsSchema.extend({
@@ -270,47 +275,79 @@ export function StepForm({
   };
 
   const handleEdgeRemove = (edgeId: string) => {
+    console.log(form.getValues("then"));
+    updateNode(step.id, {
+      ...step.data,
+      then: form.getValues("then")?.filter((id) => id !== edgeId) || [],
+    });
+    form.setValue(
+      "then",
+      form.getValues("then")?.filter((id) => id !== edgeId) || []
+    );
     removeEdge(edgeId);
   };
 
   const { createDAG, updateDAG } = useDAGMutations();
 
   async function onSubmit(values: z.output<typeof stepSchema>) {
+    console.log("Step form submitted with values:", values);
     try {
       updateNode(step.id, values);
       const dag = getDag();
-      if (!dag) return;
+      console.log("Current DAG:", dag);
+      if (!dag) {
+        console.error("No DAG found");
+        return;
+      }
       if (dag?.id) {
+        console.log("Updating existing DAG:", dag.id);
         await updateDAG(dag.id, dag);
       } else {
+        console.log("Creating new DAG");
         await createDAG(dag);
       }
       toast.success(t("message.dag_save_success.description"));
-    } catch (_e) {
+    } catch (error) {
+      console.error("Error in step form submission:", error);
       toast.error(t("message.dag_save_failed.description"));
     }
   }
 
+  const onInvalidSubmit = (errors: Record<string, unknown>) => {
+    console.log("Form validation errors:", errors);
+    toast.error("Please fix the form errors before submitting");
+  };
+
   useEffect(() => {
+    console.log("Step data for form:", step.data);
+    console.log("Step ID:", step.id);
     form.reset(step.data);
   }, [step.id, form, step.data]);
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter step name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+      <form
+        onSubmit={(e) => {
+          console.log("Form submit event triggered");
+          form.handleSubmit(onSubmit, onInvalidSubmit)(e);
+        }}
+        className="space-y-4"
+      >
+        {form.watch("type") !== "input" && form.watch("type") !== "output" && (
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter step name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         {form.watch("type") !== "input" && (
           <FormField
             control={form.control}
@@ -320,7 +357,7 @@ export function StepForm({
                 <FormLabel>Step Type</FormLabel>
                 <Select
                   onValueChange={(e) => {
-                    // form.setValue("id", "output");
+                    form.setValue("name", "output");
                     field.onChange(e);
                   }}
                   defaultValue={field.value}
@@ -408,21 +445,21 @@ export function StepForm({
                   )
                   .map((node) => (
                     <SelectItem key={node.id} value={node.id}>
-                      {node.data.id}
+                      {node.data.name}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
             <div className="flex flex-wrap gap-2 mt-2">
-              {step.data.then?.map((edge) => {
+              {step.data.then?.map((stepId) => {
                 return (
                   <Badge
-                    key={edge}
+                    key={stepId}
                     variant="secondary"
                     className="cursor-pointer"
-                    onClick={() => handleEdgeRemove(edge)}
+                    onClick={() => handleEdgeRemove(stepId)}
                   >
-                    {edge}
+                    {nodes.find((n) => n.id === stepId)?.data.name}
                     <X className="ml-1 h-3 w-3" />
                   </Badge>
                 );
@@ -463,7 +500,7 @@ export function StepForm({
                   )
                   .map((node) => (
                     <SelectItem key={node.id} value={node.id}>
-                      {node.data.id}
+                      {node.data.name}
                     </SelectItem>
                   ))}
               </SelectContent>
@@ -478,7 +515,7 @@ export function StepForm({
                     className="cursor-pointer"
                     onClick={() => handleEdgeRemove(edge.id)}
                   >
-                    {sourceNode?.data.id || edge.source}
+                    {sourceNode?.data.name}
                     <X className="ml-1 h-3 w-3" />
                   </Badge>
                 );
@@ -487,7 +524,15 @@ export function StepForm({
           </FormItem>
         )}
 
-        <Button type="submit" variant="secondary">
+        <Button
+          type="submit"
+          variant="secondary"
+          onClick={() => {
+            console.log("Submit button clicked");
+            console.log("Form state:", form.formState);
+            console.log("Form values:", form.getValues());
+          }}
+        >
           Submit
         </Button>
       </form>

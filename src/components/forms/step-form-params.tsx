@@ -59,6 +59,34 @@ export function QueryForm({
           </FormItem>
         )}
       />
+      <FormField
+        control={control}
+        name="select"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Select Fields</FormLabel>
+            <FormControl>
+              <Input
+                placeholder="field1, field2, field3"
+                {...field}
+                value={
+                  Array.isArray(field.value)
+                    ? field.value.join(", ")
+                    : field.value || ""
+                }
+                onChange={(e) =>
+                  field.onChange(
+                    (e.target.value.split(",") || "")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  )
+                }
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
     </div>
   );
 }

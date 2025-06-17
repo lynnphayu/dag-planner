@@ -15,12 +15,22 @@ import {
 import "@xyflow/react/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
-import { Plus, LayoutGrid } from "lucide-react";
+import { Plus, LayoutGrid, ArrowLeft, Play } from "lucide-react";
 import { InputNode, OutputNode, StepNode } from "../nodes";
-import { MouseEvent, useCallback, useMemo } from "react";
+import { MouseEvent, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { GRID_SIZE } from "@/config/node";
+import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ExecuteDAGForm } from "@/components/forms/execute-dag-form";
 
 // Create node types with props
 const createNodeTypes = (
@@ -41,6 +51,8 @@ const createNodeTypes = (
 export function FlowComponent() {
   const { theme } = useTheme();
   const { t } = useTranslation();
+  const router = useRouter();
+  const [isExecuteDialogOpen, setIsExecuteDialogOpen] = useState(false);
 
   const {
     nodes,
@@ -112,6 +124,9 @@ export function FlowComponent() {
       onConnect={onConnectProxy}
       nodeTypes={nodeTypes}
       nodesDraggable={true}
+      proOptions={{
+        hideAttribution: true,
+      }}
       fitView={true}
       fitViewOptions={{ maxZoom: 1 }}
       defaultEdgeOptions={{
@@ -123,6 +138,37 @@ export function FlowComponent() {
       }}
     >
       <Panel position="top-left" className="flex gap-2">
+        <Button
+          onClick={() => router.push("/")}
+          variant="outline"
+          title="Back to DAG List"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <Dialog
+          open={isExecuteDialogOpen}
+          onOpenChange={setIsExecuteDialogOpen}
+        >
+          <DialogTrigger asChild>
+            <Button disabled={!dag?.id} variant="default" title="Execute DAG">
+              <Play className="h-4 w-4" />
+              Execute
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Execute DAG</DialogTitle>
+              <DialogDescription>
+                Provide input data for the DAG execution. The data should match
+                the input schema defined for this DAG.
+              </DialogDescription>
+            </DialogHeader>
+            <ExecuteDAGForm
+              dag={dag}
+              onCancel={() => setIsExecuteDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
         <Button onClick={addNode}>
           <Plus className="h-4 w-4" />
         </Button>

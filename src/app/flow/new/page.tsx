@@ -1,4 +1,5 @@
 "use client";
+
 import { FlowComponent } from "@/components/flow/flow-editor";
 import { StepForm } from "@/components/forms/step-form";
 import {
@@ -10,18 +11,20 @@ import {
 } from "@/components/ui/sheet";
 import { useFlowStore } from "@/store/flow-store";
 import { ReactFlowProvider } from "@xyflow/react";
-import { useDAG } from "@/hooks/use-dag";
-import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
+import { useSearchParams } from "next/navigation";
 
-export default function FlowPage(props: Record<string, unknown>) {
-  const { id: dagId } = useParams();
-  const { dag: dagResponse, isLoading, isError } = useDAG(dagId as string);
+export default function NewDAGPage() {
+  const searchParams = useSearchParams();
+  const dagName = searchParams.get("name") || "new-dag";
+  const inputSchema = searchParams.get("schema")
+    ? JSON.parse(decodeURIComponent(searchParams.get("schema")!))
+    : {};
 
   const {
     isSheetOpen,
@@ -33,22 +36,15 @@ export default function FlowPage(props: Record<string, unknown>) {
     removeEdge,
     wouldCreateCycle,
     updateNode,
-    setDAG,
+    initializeNewDAG,
     getDag,
   } = useFlowStore();
 
-  // Initialize flow when DAG data is loaded
+  // Initialize new DAG when component mounts
   useEffect(() => {
-    if (dagResponse) setDAG(dagResponse);
-  }, [dagResponse, setDAG]);
+    initializeNewDAG(dagName, inputSchema);
+  }, [dagName, inputSchema, initializeNewDAG]);
 
-  if (isLoading) {
-    return <div>Loading DAG...</div>;
-  }
-
-  if (isError) {
-    return <div>Error loading DAG</div>;
-  }
   const step = selectedNode();
 
   return (
@@ -59,7 +55,7 @@ export default function FlowPage(props: Record<string, unknown>) {
     >
       <ReactFlowProvider>
         <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-          <FlowComponent {...props} />
+          <FlowComponent />
         </div>
       </ReactFlowProvider>
       <ResizablePanelGroup direction="horizontal">
@@ -69,7 +65,7 @@ export default function FlowPage(props: Record<string, unknown>) {
             <SheetHeader>
               <SheetTitle>{step?.data.id}</SheetTitle>
               <SheetDescription>
-                Make changes to your DAG node. All changes will be automatically
+                Configure your DAG node. All changes will be automatically
                 saved.
               </SheetDescription>
               {step && (

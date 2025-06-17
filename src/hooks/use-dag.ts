@@ -118,6 +118,8 @@ export type Step<
 
 export interface DAGModel {
   id: string;
+  name: string;
+  description: string;
   steps: Step[];
   inputSchema: Record<string, unknown>;
   // outputSchema: Record<string, unknown>;
@@ -187,8 +189,42 @@ export function useDAGMutations() {
       })
       .catch((e) => toast.error(`Error updating DAG - ${e.message}`));
 
+  const executeDAG = async (
+    id: string,
+    inputData?: Record<string, unknown>
+  ) => {
+    const response = await fetch(API_CONFIG.ENDPOINTS.DAGS.EXECUTE(id), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(inputData || {}),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      toast.error(
+        `Error executing DAG - ${response.status} ${response.statusText}`
+      );
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    toast.success("DAG execution completed");
+
+    // Return both HTTP response details and data
+    return {
+      httpResponse: {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        url: response.url,
+      },
+      data: responseData,
+    };
+  };
+
   return {
     createDAG,
     updateDAG,
+    executeDAG,
   };
 }
