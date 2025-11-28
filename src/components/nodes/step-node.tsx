@@ -11,38 +11,20 @@ import {
   SquarePlus,
   Trash2,
   Zap,
-  Play,
 } from "lucide-react";
 import { memo, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NODE_PREF } from "@/config/node";
 import type { NodeData } from "@/store/flow-store";
-import type { Adapter, DAGModel } from "@/hooks/dag";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ExecuteAdapterForm } from "@/components/forms/execute-adapter-form";
 
 interface StepNodeProps extends Pick<Node<NodeData>, "data" | "id"> {
   onEdit: (id: string) => void;
   removeNode: (id: string) => void;
-  dag?: DAGModel | null;
 }
 const iconSize = "h-4 w-4";
 
 const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
-  // Determine styling based on node type
-  const isAdapter = data.data.type.includes("adapter");
-  const [isExecuteOpen, setIsExecuteOpen] = useState(false);
-  const adapterData = useMemo(() => {
-    if (!isAdapter) return null;
-    // Node id for adapters is "adapter-<adapter.id>", actual adapter id is in data.id
-    // Cast to Adapter to access input metadata if available from API
-    return { ...(data.data as unknown as Adapter), id: data.id } as Adapter;
-  }, [isAdapter, data]);
+  // Non-adapter step node
 
   // Get icon based on type
   const getIcon = () => {
@@ -86,14 +68,6 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
 
   // Get color scheme based on type
   const getColorScheme = () => {
-    if (isAdapter) {
-      return {
-        border: "border-indigo-500/50",
-        bg: "bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/30 dark:to-indigo-900/20",
-        text: "text-indigo-700 dark:text-indigo-300",
-        icon: "text-indigo-600 dark:text-indigo-400",
-      };
-    }
     return {
       border: "border-slate-300/60 dark:border-slate-600/40",
       bg: "bg-gradient-to-br from-slate-50 to-slate-100/60 dark:from-slate-900/20 dark:to-slate-800/30",
@@ -106,7 +80,7 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
 
   return (
     <>
-      {!isAdapter && <Handle type="target" position={Position.Left} />}
+      <Handle type="target" position={Position.Left} />
       <div
         style={{
           width: NODE_PREF.style.width,
@@ -118,35 +92,8 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
         <div className="flex items-center justify-between px-2.5 pt-2 pb-1 gap-2">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className={`${colors.icon} flex-shrink-0`}>{getIcon()}</div>
-            <p className="font-semibold truncate text-sm">{data.name}</p>
           </div>
           <div className="flex gap-0.5 flex-shrink-0">
-            {isAdapter && (
-              <Dialog open={isExecuteOpen} onOpenChange={setIsExecuteOpen}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`hover:bg-accent hover:text-accent-foreground rounded size-6`}
-                  onClick={() => setIsExecuteOpen(true)}
-                  title="Execute"
-                >
-                  <Play className={iconSize} />
-                </Button>
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>Execute Adapter</DialogTitle>
-                  </DialogHeader>
-                  {adapterData && (
-                    <ExecuteAdapterForm
-
-                      adapter={adapterData}
-                      onCancel={() => setIsExecuteOpen(false)}
-                      onSuccess={() => setIsExecuteOpen(false)}
-                    />
-                  )}
-                </DialogContent>
-              </Dialog>
-            )}
             <Button
               variant="ghost"
               size="icon"
@@ -166,16 +113,21 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
           </div>
         </div>
 
+        {/* Name row: moved under logos */}
+        <div className="px-2.5 pb-1">
+          <p className="font-semibold truncate text-sm">{data.name}</p>
+        </div>
+
         {/* Bottom row: Type badge */}
-        <div className="px-2.5 pb-2">
+        {/* <div className="px-2.5 pb-2">
           <p
             className={`text-[10px] ${colors.text} font-medium truncate opacity-70`}
           >
             {getTypeName()}
           </p>
-        </div>
+        </div> */}
       </div>
-      {!isAdapter && <Handle type="source" position={Position.Right} />}
+      <Handle type="source" position={Position.Right} />
     </>
   );
 };

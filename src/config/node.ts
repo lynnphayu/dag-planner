@@ -3,7 +3,6 @@ import { Position } from "@xyflow/react";
 export const GRID_SIZE = 16;
 
 export const NODE_PREF = {
-  type: "CustomNode",
   sourcePosition: Position.Right,
   targetPosition: Position.Left,
   style: {

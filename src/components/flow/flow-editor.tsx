@@ -31,17 +31,18 @@ import { GRID_SIZE } from "@/config/node";
 import { useAdapters } from "@/hooks/dag";
 
 import StepNode from "../nodes/step-node";
+import AdapterNode from "../nodes/adapter-node";
 
 // Create node types with props
 const createNodeTypes = (
   openSheet: (id: string) => void,
   removeNode: (id: string) => void,
 ) => ({
-  CustomNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
+  StepNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
     <StepNode {...props} onEdit={openSheet} removeNode={removeNode} />
   ),
   AdapterNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
-    <StepNode {...props} onEdit={openSheet} removeNode={removeNode} />
+    <AdapterNode {...props} onEdit={openSheet} removeNode={removeNode} />
   ),
 });
 

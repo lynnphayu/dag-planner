@@ -92,6 +92,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       // Add node
       nodes.push({
         id: step.id,
+        type: "StepNode",
         position: {
           x: column * (NODE_PREF.style.width + GRID_SIZE * 2),
           y: row * (NODE_PREF.style.height + GRID_SIZE * 2),
