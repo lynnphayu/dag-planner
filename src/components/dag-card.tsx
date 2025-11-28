@@ -15,7 +15,7 @@ interface DAGCardProps {
 
 export function DAGCard({ dag, onClick }: DAGCardProps) {
   const nodes = Object.values(dag.nodes);
-  const uniqueStepTypes = [...new Set(nodes.map((step) => step.type))];
+  const uniqueStepTypes = [...new Set(nodes.map((step) => step.data.type))];
 
   return (
     <Card
