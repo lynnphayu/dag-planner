@@ -13,22 +13,13 @@ import {
 import { type NodeData, useFlowStore } from "@/store/flow-store";
 
 import "@xyflow/react/dist/style.css";
-import { ArrowLeft, LayoutGrid, Play, Plus } from "lucide-react";
+import { ArrowLeft, LayoutGrid, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { type MouseEvent, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ExecuteDAGForm } from "@/components/forms/execute-dag-form";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,7 +49,6 @@ export function FlowComponent() {
   const { theme } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
-  const [isExecuteDialogOpen, setIsExecuteDialogOpen] = useState(false);
   const {
     nodes,
     edges,
@@ -151,30 +141,6 @@ export function FlowComponent() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <Dialog
-          open={isExecuteDialogOpen}
-          onOpenChange={setIsExecuteDialogOpen}
-        >
-          <DialogTrigger asChild>
-            <Button disabled={!dag?.id} variant="default" title="Execute DAG">
-              <Play className="h-4 w-4" />
-              Execute
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Execute DAG</DialogTitle>
-              <DialogDescription>
-                Provide input data for the DAG execution. The data should match
-                the input schema defined for this DAG.
-              </DialogDescription>
-            </DialogHeader>
-            <ExecuteDAGForm
-              dag={dag}
-              onCancel={() => setIsExecuteDialogOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button>

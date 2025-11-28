@@ -3,39 +3,77 @@ import {
   Calendar,
   Database,
   Filter,
+  FunctionSquare,
+  GitBranch,
   GitMerge,
   Globe,
-  MapPin,
   PencilLine,
+  SquarePlus,
   Trash2,
   Zap,
+  Play,
 } from "lucide-react";
-import { memo } from "react";
+import { memo, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { NODE_PREF } from "@/config/node";
 import type { NodeData } from "@/store/flow-store";
+import type { Adapter, DAGModel } from "@/hooks/dag";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ExecuteAdapterForm } from "@/components/forms/execute-adapter-form";
 
 interface StepNodeProps extends Pick<Node<NodeData>, "data" | "id"> {
   onEdit: (id: string) => void;
   removeNode: (id: string) => void;
+  dag?: DAGModel | null;
 }
 const iconSize = "h-4 w-4";
 
 const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
   // Determine styling based on node type
   const isAdapter = data.data.type.includes("adapter");
+  const [isExecuteOpen, setIsExecuteOpen] = useState(false);
+  const adapterData = useMemo(() => {
+    if (!isAdapter) return null;
+    // Node id for adapters is "adapter-<adapter.id>", actual adapter id is in data.id
+    // Cast to Adapter to access input metadata if available from API
+    return { ...(data.data as unknown as Adapter), id: data.id } as Adapter;
+  }, [isAdapter, data]);
 
   // Get icon based on type
   const getIcon = () => {
     const type = data.data.type;
 
-    if (type.includes("query")) return <Database className={iconSize} />;
-    if (type.includes("filter")) return <Filter className={iconSize} />;
-    if (type.includes("map")) return <MapPin className={iconSize} />;
-    if (type.includes("join")) return <GitMerge className={iconSize} />;
-    if (type.includes("cron")) return <Calendar className={iconSize} />;
-    if (type.includes("http")) return <Globe className={iconSize} />;
-    return <Zap className={iconSize} />;
+    switch (type) {
+      case "query":
+        return <Database className={iconSize} />;
+      case "insert":
+        return <SquarePlus className={iconSize} />;
+      case "update":
+        return <PencilLine className={iconSize} />;
+      case "delete":
+        return <Trash2 className={iconSize} />;
+      case "join":
+        return <GitMerge className={iconSize} />;
+      case "filter":
+        return <Filter className={iconSize} />;
+      case "map":
+        return <FunctionSquare className={iconSize} />;
+      case "condition":
+        return <GitBranch className={iconSize} />;
+      case "http":
+        return <Globe className={iconSize} />;
+      case "http_adapter":
+        return <Globe className={iconSize} />;
+      case "schedular_adapter":
+        return <Calendar className={iconSize} />;
+      default:
+        return <Zap className={iconSize} />;
+    }
   };
 
   // Get styled type name
@@ -83,6 +121,32 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
             <p className="font-semibold truncate text-sm">{data.name}</p>
           </div>
           <div className="flex gap-0.5 flex-shrink-0">
+            {isAdapter && (
+              <Dialog open={isExecuteOpen} onOpenChange={setIsExecuteOpen}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`hover:bg-accent hover:text-accent-foreground rounded size-6`}
+                  onClick={() => setIsExecuteOpen(true)}
+                  title="Execute"
+                >
+                  <Play className={iconSize} />
+                </Button>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Execute Adapter</DialogTitle>
+                  </DialogHeader>
+                  {adapterData && (
+                    <ExecuteAdapterForm
+
+                      adapter={adapterData}
+                      onCancel={() => setIsExecuteOpen(false)}
+                      onSuccess={() => setIsExecuteOpen(false)}
+                    />
+                  )}
+                </DialogContent>
+              </Dialog>
+            )}
             <Button
               variant="ghost"
               size="icon"
