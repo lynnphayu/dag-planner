@@ -14,4 +14,6 @@ export const NODE_PREF = {
     border: "1px solid var(--border)",
     boxShadow: "var(--shadow)",
   },
+  className:
+    "transition-transform ease-in-out duration-200 will-change-transform [&.dragging]:!transition-none",
 };
