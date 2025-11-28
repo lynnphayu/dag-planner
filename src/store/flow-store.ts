@@ -14,6 +14,11 @@ import { StepType } from "@/components/forms/step-form";
 import { GRID_SIZE, NODE_PREF } from "@/config/node";
 import type { Adapter, ConditionParams, DAGModel, Step } from "@/hooks/dag";
 export type NodeData = z.infer<typeof stepSchema>;
+import {
+  uniqueNamesGenerator,
+  adjectives,
+  animals,
+} from "unique-names-generator";
 
 interface FlowState {
   dag: DAGModel | null;
@@ -294,16 +299,28 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   addNode: (data) => {
     const { nodes, findAvailablePosition } = get();
     const pos = findAvailablePosition({ x: 0, y: 0 });
+    const nodeId = crypto.randomUUID();
+    const generatedName = uniqueNamesGenerator({
+      dictionaries: [adjectives, animals],
+      separator: " ",
+      style: "capital",
+    });
     const newNode = {
-      id: `new-${nodes.length}`,
+      id: nodeId,
       position: pos,
       data: {
-        id: crypto.randomUUID(),
-        table: "",
-        name: "",
-        type: StepType.enum.query,
-        select: [],
+        id: nodeId,
+        data: {
+          type: StepType.enum.query,
+          meta: {
+            table: "",
+            where: {},
+            select: [],
+          },
+        },
         ...data,
+        name:
+          (data?.name && data.name.trim().length > 0 ? data.name : generatedName) as string,
       } as NodeData,
       ...NODE_PREF,
     };
