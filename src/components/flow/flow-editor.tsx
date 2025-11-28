@@ -192,11 +192,12 @@ export function FlowComponent() {
                   data: {
                     type: "http_adapter",
                     meta: {
-                      method: "GET",
+                      method: "get",
                       path: "",
                       query: {},
                       headers: {},
                       body: {},
+                      authType: "none"
                     },
                   },
                   name: "New Adapter",

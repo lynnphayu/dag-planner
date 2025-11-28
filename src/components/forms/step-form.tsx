@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ConditionParams, DAGModel } from "@/hooks/dag";
+import { MultiSelect } from "@/components/ui/multiselect";
+import type { Adapter, ConditionParams, CronAdapter, DAGModel, HTTPAdapter } from "@/hooks/dag";
 import { useDAGMutations } from "@/hooks/dag";
 import type { NodeData } from "@/store/flow-store";
 import {
@@ -64,7 +65,10 @@ export const Operator = z.enum([
 ]);
 
 // Define the HTTP methods
-const HTTPMethod = z.enum(["GET", "POST", "PUT", "DELETE", "PATCH"]);
+export const HTTPMethod = z.enum(["get", "post", "put", "delete", "patch"]);
+
+// Define adapter auth types
+export const AuthType = z.enum(["none", "basic", "bearer", "apiKey"]);
 
 // Define the join types
 const JoinType = z.enum(["inner", "left", "right"]);
@@ -106,18 +110,17 @@ const ConditionSchema = z
     }
   });
 
-const CustomJSONSchema = z.record(z.any());
-// z.string().transform((val, ctx) => {
-//   try {
-//     return JSON.parse(val) as Record<string, unknown>;
-//   } catch (_e) {
-//     ctx.addIssue({
-//       code: "custom",
-//       message: "Invalid JSON format",
-//     });
-//     return z.NEVER;
-//   }
-// });
+const CustomJSONSchema = z.union([z.string(), z.record(z.any())]).transform((val, ctx) => {
+  try {
+    return typeof val === "string" ? JSON.parse(val) : val;
+  } catch (_e) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Invalid JSON format",
+    });
+    return z.NEVER;
+  }
+});
 
 const DbOpsSchema = z.object({
   table: z.string(),
@@ -140,7 +143,7 @@ const InsertParamsSchema = z.object({
   type: z.literal("insert"),
   input: CustomJSONSchema.optional(),
   meta: DbOpsSchema.extend({
-    map: z.record(z.any()),
+    map: CustomJSONSchema,
   }),
 });
 
@@ -202,7 +205,7 @@ const HTTPParamsSchema = z.object({
   input: CustomJSONSchema.optional(),
   meta: z.object({
     method: HTTPMethod,
-    url: z.string().url(),
+    url: z.string(),
     headers: CustomJSONSchema.optional(),
     body: CustomJSONSchema.optional(),
     query: CustomJSONSchema.optional(),
@@ -214,10 +217,13 @@ const HTTPAdapterParamsSchema = z.object({
   input: CustomJSONSchema.optional(),
   meta: z.object({
     method: HTTPMethod,
-    path: z.string().url(),
+    path: z.string(),
     headers: CustomJSONSchema.optional(),
     body: CustomJSONSchema.optional(),
     query: CustomJSONSchema.optional(),
+    response: z.string().optional(),
+    authType: AuthType.default("none"),
+    auth: CustomJSONSchema.optional(),
   }),
 });
 
@@ -358,12 +364,12 @@ export function StepForm({
     form.setValue(
       "dependencies",
       form.getValues("dependencies")?.filter((id: string) => id !== edgeId) ||
-        [],
+      [],
     );
     removeEdge(edgeId);
   };
 
-  const { createDAG, updateDAG } = useDAGMutations();
+  const { createDAG, updateDAG, updateAdapter } = useDAGMutations();
 
   async function onSubmit(values: z.output<typeof stepSchema>) {
     console.log("Step form submitted with values:", values);
@@ -387,12 +393,34 @@ export function StepForm({
         console.error("No DAG found");
         return;
       }
-      if (dag?.id) {
-        console.log("Updating existing DAG:", dag.id);
-        await updateDAG(dag.id, dag);
+      const isAdapterNode =
+        data.data?.type === "http_adapter" ||
+        data.data?.type === "schedular_adapter";
+
+      if (isAdapterNode) {
+        // Update adapter via its dedicated endpoint
+        const adapterPayload: Adapter = {
+          _id: data.id,
+          graphId: dag.id,
+          id: data.id,
+          input: data.data.input || {},
+          // user_id: dag.user_id, TODO: add user_id properly
+          user_id: "",
+          name: data.name || "",
+          ...{
+            type: data.data?.type,
+            meta: data.data.meta
+          } as HTTPAdapter | CronAdapter
+        }
+        await updateAdapter(data.id, adapterPayload);
       } else {
-        console.log("Creating new DAG");
-        await createDAG(dag);
+        if (dag?.id) {
+          console.log("Updating existing DAG:", dag.id);
+          await updateDAG(dag.id, dag);
+        } else {
+          console.log("Creating new DAG");
+          await createDAG(dag);
+        }
       }
       toast.success(t("message.dag_save_success.description"));
     } catch (error) {
@@ -433,20 +461,20 @@ export function StepForm({
           options={
             form.watch("data.type").includes("adapter")
               ? [
-                  { value: "http_adapter", label: "HTTP Adapter" },
-                  { value: "schedular_adapter", label: "Cron Adapter" },
-                ]
+                { value: "http_adapter", label: "HTTP Adapter" },
+                { value: "schedular_adapter", label: "Cron Adapter" },
+              ]
               : [
-                  { value: "query", label: "Query" },
-                  { value: "insert", label: "Insert" },
-                  { value: "update", label: "Update" },
-                  { value: "delete", label: "Delete" },
-                  { value: "join", label: "Join" },
-                  { value: "filter", label: "Filter" },
-                  { value: "map", label: "Map" },
-                  { value: "condition", label: "Condition" },
-                  { value: "http", label: "HTTP" },
-                ]
+                { value: "query", label: "Query" },
+                { value: "insert", label: "Insert" },
+                { value: "update", label: "Update" },
+                { value: "delete", label: "Delete" },
+                { value: "join", label: "Join" },
+                { value: "filter", label: "Filter" },
+                { value: "map", label: "Map" },
+                { value: "condition", label: "Condition" },
+                { value: "http", label: "HTTP" },
+              ]
           }
         />
         <Fields.Json control={form.control} name="data.input" label="Input" />
@@ -486,115 +514,106 @@ export function StepForm({
         {!form.watch("data.type").includes("adapter") && (
           <FormItem>
             <FormLabel>Then (Next Steps)</FormLabel>
-            <Select
-              onValueChange={(targetId) => {
-                if (!wouldCreateCycle(step.id, targetId)) {
-                  handleEdgeAdd(step.id, targetId);
-                  form.setValue("dependencies", [
-                    ...(form.getValues("dependencies") || []),
-                    targetId,
-                  ]);
-                } else {
-                  toast.error(t("message.cycle_detected.title"), {
-                    description: t("message.cycle_detected.description"),
-                  });
-                }
-              }}
-              value=""
-            >
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select next steps" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {nodes
+            <FormControl>
+              <MultiSelect
+                options={nodes
                   .filter(
                     (node) =>
                       node.id !== step.id &&
-                      !outgoingEdges.some((e) => e.target === node.id) &&
                       !node.data.data?.type.includes("adapter"),
                   )
-                  .map((node) => (
-                    <SelectItem key={node.id} value={node.id}>
-                      {node.data.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {step.data.dependencies?.map((stepId: string) => {
-                return (
-                  <Badge
-                    key={stepId}
-                    variant="secondary"
-                    className="cursor-pointer"
-                    onClick={() => handleEdgeRemove(stepId)}
-                  >
-                    {nodes.find((n) => n.id === stepId)?.data.name}
-                    <X className="ml-1 h-3 w-3" />
-                  </Badge>
-                );
-              })}
-            </div>
+                  .map((node) => ({
+                    label: node.data.name as string,
+                    value: node.id,
+                  }))}
+                value={(form.watch("dependencies") as (string | number)[]) || []}
+                placeholder="Select next steps"
+                onChange={(selectedValues) => {
+                  const prev = (form.getValues("dependencies") || []) as string[];
+                  const nextSelected = (selectedValues as (string | number)[]).map(
+                    (v) => v.toString(),
+                  );
+                  const added = nextSelected.filter((id) => !prev.includes(id));
+                  const removed = prev.filter((id) => !nextSelected.includes(id));
+
+                  // Handle additions with cycle check
+                  const actuallyAdded: string[] = [];
+                  for (const targetId of added) {
+                    if (!wouldCreateCycle(step.id, targetId)) {
+                      handleEdgeAdd(step.id, targetId);
+                      actuallyAdded.push(targetId);
+                    } else {
+                      toast.error(t("message.cycle_detected.title"), {
+                        description: t("message.cycle_detected.description"),
+                      });
+                    }
+                  }
+
+                  // Handle removals
+                  for (const targetId of removed) {
+                    removeEdge(`edge-${step.id}-${targetId}`);
+                  }
+
+                  const finalDeps = [
+                    ...prev.filter((id) => !removed.includes(id)),
+                    ...actuallyAdded,
+                  ];
+
+                  form.setValue("dependencies", finalDeps);
+                  updateNode(step.id, {
+                    ...step.data,
+                    dependencies: finalDeps,
+                  });
+                }}
+              />
+            </FormControl>
           </FormItem>
         )}
         {!form.watch("data.type").includes("adapter") && (
           <FormItem>
             <FormLabel>Depends On</FormLabel>
-            <Select
-              onValueChange={(sourceId) => {
-                if (!wouldCreateCycle(sourceId, step.id)) {
-                  handleEdgeAdd(sourceId, step.id);
-                } else {
-                  toast.error("Invalid Connection", {
-                    description:
-                      "This connection would create a cycle in the workflow. DAGs must not contain cycles.",
-                  });
-                }
-              }}
-              value=""
-            >
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select dependencies" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {nodes
+            <FormControl>
+              <MultiSelect
+                options={nodes
                   .filter(
                     (node) =>
                       node.id !== step.id &&
-                      !incomingEdges.some((e) => e.source === node.id) &&
                       !node.data.data?.type.includes("adapter") &&
                       !step.data.dependencies?.includes(node.id) &&
                       !(
-                        step.data.data as unknown as ConditionParams
-                      ).else?.includes(node.id),
+                        (step.data.data as unknown as ConditionParams).else || []
+                      )?.includes(node.id),
                   )
-                  .map((node) => (
-                    <SelectItem key={node.id} value={node.id}>
-                      {node.data.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {incomingEdges.map((edge) => {
-                const sourceNode = nodes.find((n) => n.id === edge.source);
-                return (
-                  <Badge
-                    key={edge.id}
-                    variant="secondary"
-                    className="cursor-pointer"
-                    onClick={() => handleEdgeRemove(edge.id)}
-                  >
-                    {sourceNode?.data.name}
-                    <X className="ml-1 h-3 w-3" />
-                  </Badge>
-                );
-              })}
-            </div>
+                  .map((node) => ({
+                    label: node.data.name as string,
+                    value: node.id,
+                  }))}
+                value={incomingEdges.map((e) => e.source)}
+                placeholder="Select dependencies"
+                onChange={(selectedValues) => {
+                  const prevSources = incomingEdges.map((e) => e.source);
+                  const nextSources = (selectedValues as (string | number)[]).map(
+                    (v) => v.toString(),
+                  );
+                  const added = nextSources.filter((id) => !prevSources.includes(id));
+                  const removed = prevSources.filter((id) => !nextSources.includes(id));
+
+                  for (const sourceId of added) {
+                    if (!wouldCreateCycle(sourceId, step.id)) {
+                      handleEdgeAdd(sourceId, step.id);
+                    } else {
+                      toast.error("Invalid Connection", {
+                        description:
+                          "This connection would create a cycle in the workflow. DAGs must not contain cycles.",
+                      });
+                    }
+                  }
+                  for (const sourceId of removed) {
+                    removeEdge(`edge-${sourceId}-${step.id}`);
+                  }
+                }}
+              />
+            </FormControl>
           </FormItem>
         )}
 

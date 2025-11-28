@@ -1,11 +1,8 @@
-import { useMemo } from "react";
-import type { TFormControl } from "../step-form";
+import { HTTPMethod, type TFormControl } from "../step-form";
 import Fields from "./fields";
 
-const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH"];
 
 export function HTTPForm({ control }: { control: TFormControl }) {
-  const methods = useMemo(() => HTTP_METHODS, []);
 
   return (
     <>
@@ -13,7 +10,7 @@ export function HTTPForm({ control }: { control: TFormControl }) {
         label="Method"
         control={control}
         name="data.meta.method"
-        options={methods}
+        options={HTTPMethod.options.map((method) => ({ value: method, label: method.toUpperCase() }))}
       />
       <Fields.Text label="URL" control={control} name="data.meta.url" />
       <Fields.Json label="Headers" control={control} name="data.meta.headers" />

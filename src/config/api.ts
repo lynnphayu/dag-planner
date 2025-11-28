@@ -1,5 +1,5 @@
 export const getAPIConfig = (baseUrl?: string) => {
-  const BASE_URL = baseUrl || "http://localhost:3030/v1";
+  const BASE_URL = baseUrl || "http://localhost:8888/v1";
   return () =>
     ({
       BASE_URL,
@@ -15,6 +15,7 @@ export const getAPIConfig = (baseUrl?: string) => {
         },
         ADAPTERS: {
           LIST: `${BASE_URL}/adapters`,
+          DETAIL: (id: string) => `${BASE_URL}/adapters/${id}`,
         },
       },
     }) as const;

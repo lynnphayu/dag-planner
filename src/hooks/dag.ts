@@ -78,7 +78,7 @@ export interface ConditionParams {
 
 // HTTP params
 export interface HTTPParams {
-  method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+  method: "get" | "post" | "put" | "delete" | "patch";
   url: string;
   headers?: Record<string, string>;
   body?: Record<string, unknown>;
@@ -87,15 +87,15 @@ export interface HTTPParams {
 
 export type Step = BaseStep & {
   data:
-    | ({ type: "query" } & { meta: QueryParams })
-    | ({ type: "insert" } & { meta: InsertParams })
-    | ({ type: "update" } & { meta: UpdateParams })
-    | ({ type: "delete" } & { meta: DeleteParams })
-    | ({ type: "join" } & { meta: JoinParams })
-    | ({ type: "filter" } & { meta: FilterParams })
-    | ({ type: "map" } & { meta: MapParams })
-    | ({ type: "condition" } & { meta: ConditionParams })
-    | ({ type: "http" } & { meta: HTTPParams });
+  | ({ type: "query" } & { meta: QueryParams })
+  | ({ type: "insert" } & { meta: InsertParams })
+  | ({ type: "update" } & { meta: UpdateParams })
+  | ({ type: "delete" } & { meta: DeleteParams })
+  | ({ type: "join" } & { meta: JoinParams })
+  | ({ type: "filter" } & { meta: FilterParams })
+  | ({ type: "map" } & { meta: MapParams })
+  | ({ type: "condition" } & { meta: ConditionParams })
+  | ({ type: "http" } & { meta: HTTPParams });
 };
 
 export interface DAGModel {
@@ -107,13 +107,16 @@ export interface DAGModel {
 }
 
 export interface HTTPAdapter {
-  type: "http_adapter";
+  type: "http_adapter"
   meta: {
-    method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+    method: "get" | "post" | "put" | "delete" | "patch";
     path: string;
     headers?: Record<string, string>;
     body?: Record<string, unknown>;
     query?: Record<string, unknown>;
+    response?: string;
+    authType: "none" | "basic" | "bearer" | "apiKey";
+    auth?: Record<string, unknown>;
   };
 }
 
@@ -197,6 +200,27 @@ export function useDAGMutations() {
       })
       .catch((e) => toast.error(`Error updating DAG - ${e.message}`));
 
+  const updateAdapter = async (
+    id: string,
+    adapter: Adapter,
+  ) =>
+    fetch(API_CONFIG.ENDPOINTS.ADAPTERS.DETAIL(id), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(adapter),
+    })
+      .then(async (x) => {
+        mutate(API_CONFIG.ENDPOINTS.ADAPTERS.LIST);
+        mutate(API_CONFIG.ENDPOINTS.ADAPTERS.DETAIL(id));
+        mutate(API_CONFIG.ENDPOINTS.DAGS.DETAIL(adapter.graphId));
+        toast.success("Adapter updated");
+        return x.json();
+      })
+      .catch((e) => {
+        toast.error(`Error updating adapter - ${e.message}`);
+        throw e;
+      });
+
   const executeDAG = async (
     id: string,
     inputData?: Record<string, unknown>,
@@ -233,6 +257,7 @@ export function useDAGMutations() {
   return {
     createDAG,
     updateDAG,
+    updateAdapter,
     executeDAG,
   };
 }
