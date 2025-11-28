@@ -1,11 +1,11 @@
-import useSWR, { useSWRConfig } from "swr";
-import { Node, Edge } from "@xyflow/react";
-import { NodeData } from "@/store/flow-store";
-
-import { z } from "zod";
-import { API_CONFIG } from "@/config/api";
+import type { Edge, Node } from "@xyflow/react";
 import { toast } from "sonner";
-import { Operator, StepType } from "@/components/forms/step-form";
+import useSWR, { useSWRConfig } from "swr";
+
+import type { z } from "zod";
+import type { Operator } from "@/components/forms/step-form";
+import API_CONFIG from "@/config/api";
+import type { NodeData } from "@/store/flow-store";
 
 export interface DAG {
   id: string;
@@ -13,16 +13,24 @@ export interface DAG {
   edges: Edge[];
 }
 
+interface BaseStep {
+  id: string;
+  name?: string;
+  dependencies?: string[]; // renamed from dependsOn
+  dependents?: string[]; // renamed from then
+}
+
 // Query params
 export interface QueryParams {
   table: string;
   where?: Record<string, unknown>;
+  select?: string[];
 }
 
 // Insert params
 export interface InsertParams {
   table: string;
-  values: Record<string, unknown>;
+  map: Record<string, unknown>;
 }
 
 // Update params
@@ -40,7 +48,7 @@ export interface DeleteParams {
 
 // Join params
 export interface JoinParams {
-  type: "inner" | "left" | "right";
+  joinType: "inner" | "left" | "right";
   left: string;
   right: string;
   on: Record<string, string>;
@@ -77,53 +85,53 @@ export interface HTTPParams {
   query?: Record<string, unknown>;
 }
 
-// Combined Params type
-export type Params =
-  | QueryParams
-  | InsertParams
-  | UpdateParams
-  | DeleteParams
-  | JoinParams
-  | FilterParams
-  | MapParams
-  | ConditionParams
-  | HTTPParams;
-
-export type Step<
-  T extends z.infer<typeof StepType> = z.infer<typeof StepType>
-> = (T extends "query"
-  ? QueryParams
-  : T extends "insert"
-  ? InsertParams
-  : T extends "update"
-  ? UpdateParams
-  : T extends "delete"
-  ? DeleteParams
-  : T extends "join"
-  ? JoinParams
-  : T extends "filter"
-  ? FilterParams
-  : T extends "map"
-  ? MapParams
-  : T extends "condition"
-  ? ConditionParams
-  : T extends "http"
-  ? HTTPParams
-  : never) & {
-  id: string;
-  type: T;
-  then: string[];
-  dependsOn: string[];
+export type Step = BaseStep & {
+  data:
+    | ({ type: "query" } & { meta: QueryParams })
+    | ({ type: "insert" } & { meta: InsertParams })
+    | ({ type: "update" } & { meta: UpdateParams })
+    | ({ type: "delete" } & { meta: DeleteParams })
+    | ({ type: "join" } & { meta: JoinParams })
+    | ({ type: "filter" } & { meta: FilterParams })
+    | ({ type: "map" } & { meta: MapParams })
+    | ({ type: "condition" } & { meta: ConditionParams })
+    | ({ type: "http" } & { meta: HTTPParams });
 };
 
 export interface DAGModel {
   id: string;
   name: string;
   description: string;
-  steps: Step[];
+  nodes: { [key: string]: Step };
   inputSchema: Record<string, unknown>;
-  // outputSchema: Record<string, unknown>;
 }
+
+export interface HTTPAdapter {
+  type: "http_adapter";
+  meta: {
+    method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+    path: string;
+    headers?: Record<string, string>;
+    body?: Record<string, unknown>;
+    query?: Record<string, unknown>;
+  };
+}
+
+export interface CronAdapter {
+  type: "schedular_adapter";
+  meta: {
+    schedule: string;
+  };
+}
+
+export type Adapter = {
+  _id: string;
+  graphId: string;
+  id: string;
+  input: Record<string, string>;
+  name: string;
+  user_id: string;
+} & (HTTPAdapter | CronAdapter);
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -133,31 +141,31 @@ const fetcher = async (url: string) => {
   return res.json();
 };
 
-export function useDAG(id?: string) {
-  const { data, error, isLoading } = useSWR<DAGModel>(
-    id ? API_CONFIG.ENDPOINTS.DAGS.DETAIL(id) : null,
-    fetcher
+export const useTables = () =>
+  useSWR<{ data: string[] }>(API_CONFIG.ENDPOINTS.TABLES.LIST, fetcher);
+
+export const useTable = (name?: string) =>
+  useSWR<{ data: Record<string, string> }>(
+    name ? API_CONFIG.ENDPOINTS.TABLES.DETAIL(name) : undefined,
+    fetcher,
   );
 
-  return {
-    dag: data,
-    isLoading,
-    isError: error,
-  };
-}
-
-export function useDAGs() {
-  const { data, error, isLoading } = useSWR<DAGModel[]>(
-    API_CONFIG.ENDPOINTS.DAGS.LIST,
-    fetcher
+export const useDAG = (id?: string) =>
+  useSWR<DAGModel>(
+    id ? API_CONFIG.ENDPOINTS.DAGS.DETAIL(id) : undefined,
+    fetcher,
   );
 
-  return {
-    dags: data,
-    isLoading,
-    isError: error,
-  };
-}
+export const useDAGs = () =>
+  useSWR<DAGModel[]>(API_CONFIG.ENDPOINTS.DAGS.LIST, fetcher);
+
+export const useAdapters = (graphId?: string) =>
+  useSWR<Adapter[]>(
+    graphId
+      ? `${API_CONFIG.ENDPOINTS.ADAPTERS.LIST}?graphId=${graphId}`
+      : undefined,
+    fetcher,
+  );
 
 export function useDAGMutations() {
   const { mutate } = useSWRConfig();
@@ -191,7 +199,7 @@ export function useDAGMutations() {
 
   const executeDAG = async (
     id: string,
-    inputData?: Record<string, unknown>
+    inputData?: Record<string, unknown>,
   ) => {
     const response = await fetch(API_CONFIG.ENDPOINTS.DAGS.EXECUTE(id), {
       method: "POST",
@@ -203,7 +211,7 @@ export function useDAGMutations() {
 
     if (!response.ok) {
       toast.error(
-        `Error executing DAG - ${response.status} ${response.statusText}`
+        `Error executing DAG - ${response.status} ${response.statusText}`,
       );
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }

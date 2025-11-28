@@ -1,27 +1,26 @@
 "use client";
 
-import { NodeData, useFlowStore } from "@/store/flow-store";
 import {
   Background,
-  ColorMode,
+  type ColorMode,
   Controls,
-  Node,
-  OnConnect,
-  OnNodeDrag,
+  type Node,
+  type OnConnect,
+  type OnNodeDrag,
   Panel,
   ReactFlow,
 } from "@xyflow/react";
+import { type NodeData, useFlowStore } from "@/store/flow-store";
 
 import "@xyflow/react/dist/style.css";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft, LayoutGrid, Play, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Plus, LayoutGrid, ArrowLeft, Play } from "lucide-react";
-import { InputNode, OutputNode, StepNode } from "../nodes";
-import { MouseEvent, useCallback, useMemo, useState } from "react";
+import { type MouseEvent, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { GRID_SIZE } from "@/config/node";
-import { useRouter } from "next/navigation";
+import { ExecuteDAGForm } from "@/components/forms/execute-dag-form";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -30,21 +29,28 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ExecuteDAGForm } from "@/components/forms/execute-dag-form";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { GRID_SIZE } from "@/config/node";
+import { useAdapters } from "@/hooks/dag";
+
+import StepNode from "../nodes/step-node";
 
 // Create node types with props
 const createNodeTypes = (
   openSheet: (id: string) => void,
-  removeNode: (id: string) => void
+  removeNode: (id: string) => void,
 ) => ({
   CustomNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
     <StepNode {...props} onEdit={openSheet} removeNode={removeNode} />
   ),
-  InputNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
-    <InputNode {...props} onEdit={openSheet} />
-  ),
-  OutputNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
-    <OutputNode {...props} onEdit={openSheet} />
+  AdapterNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
+    <StepNode {...props} onEdit={openSheet} removeNode={removeNode} />
   ),
 });
 
@@ -53,7 +59,6 @@ export function FlowComponent() {
   const { t } = useTranslation();
   const router = useRouter();
   const [isExecuteDialogOpen, setIsExecuteDialogOpen] = useState(false);
-
   const {
     nodes,
     edges,
@@ -71,16 +76,17 @@ export function FlowComponent() {
     openSheet,
     removeNode,
   } = useFlowStore();
+  const { data: adapters } = useAdapters(dag?.id || "");
 
   // Create node types with the required functions
   const nodeTypes = useMemo(
     () => createNodeTypes(openSheet, removeNode),
-    [openSheet, removeNode]
+    [openSheet, removeNode],
   );
 
   const onDragStop: OnNodeDrag<Node<NodeData>> = (
-    event: MouseEvent,
-    node: Node<NodeData>
+    _event: MouseEvent,
+    node: Node<NodeData>,
   ) => {
     const newPosition = {
       x: Math.round(node.position.x / GRID_SIZE) * GRID_SIZE,
@@ -106,12 +112,12 @@ export function FlowComponent() {
         onConnect(connection);
       }
     },
-    [wouldCreateCycle, onConnect, t]
+    [wouldCreateCycle, onConnect, t],
   );
 
   const handleReposition = useCallback(() => {
-    if (dag) setDAG(dag);
-  }, [dag, setDAG]);
+    if (dag) setDAG(dag, adapters); // Adapters are already in the nodes, no need to re-fetch
+  }, [dag, setDAG, adapters]);
 
   return (
     <ReactFlow
@@ -169,15 +175,44 @@ export function FlowComponent() {
             />
           </DialogContent>
         </Dialog>
-        <Button onClick={addNode}>
-          <Plus className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => addNode()}>
+              Add Step
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() =>
+                addNode({
+                  data: {
+                    type: "http_adapter",
+                    meta: {
+                      method: "GET",
+                      path: "",
+                      query: {},
+                      headers: {},
+                      body: {},
+                    },
+                  },
+                  name: "New Adapter",
+                })
+              }
+            >
+              Add Adapter
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button onClick={handleReposition}>
           <LayoutGrid className="h-4 w-4" />
         </Button>
       </Panel>
       <Controls />
-      <Background gap={20} offset={20} />
+      <Background gap={GRID_SIZE} offset={GRID_SIZE} />
     </ReactFlow>
   );
 }

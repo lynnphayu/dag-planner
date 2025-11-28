@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { useDAGMutations, DAGModel } from "@/hooks/use-dag";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { JSONInput } from "@/components/ui/json-input";
+import { Label } from "@/components/ui/label";
+import { type DAGModel, useDAGMutations } from "@/hooks/dag";
 
 interface ExecuteDAGFormProps {
   dag: DAGModel | null;
@@ -30,7 +30,7 @@ export function ExecuteDAGForm({
   } | null>(null);
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [executionTimestamp, setExecutionTimestamp] = useState<string | null>(
-    null
+    null,
   );
   const [inputData, setInputData] = useState(() => {
     return dag?.inputSchema ? JSON.stringify(dag.inputSchema, null, 2) : "{}";
@@ -82,12 +82,12 @@ export function ExecuteDAGForm({
     <div className="space-y-4">
       <div>
         <Label htmlFor="input-data">Input Data (JSON)</Label>
-        <Textarea
+        <JSONInput
           id="input-data"
           value={inputData}
-          onChange={(e) => setInputData(e.target.value)}
+          onChange={setInputData}
           placeholder='{"key": "value"}'
-          className="font-mono text-sm"
+          className="text-sm"
           rows={6}
         />
       </div>
@@ -150,8 +150,8 @@ export function ExecuteDAGForm({
                               httpResponse.status < 300
                                 ? "bg-green-900/20 text-green-400 border border-green-500/30"
                                 : httpResponse.status >= 400
-                                ? "bg-red-900/20 text-red-400 border border-red-500/30"
-                                : "bg-yellow-900/20 text-yellow-400 border border-yellow-500/30"
+                                  ? "bg-red-900/20 text-red-400 border border-red-500/30"
+                                  : "bg-yellow-900/20 text-yellow-400 border border-yellow-500/30"
                             }`}
                           >
                             {httpResponse.status} {httpResponse.statusText}

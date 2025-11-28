@@ -1,3 +1,4 @@
+import { ArrowRight, User, Workflow } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -5,8 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Workflow, User, ArrowRight } from "lucide-react";
-import { DAGModel } from "@/hooks/use-dag";
+import type { DAGModel } from "@/hooks/dag";
 
 interface DAGCardProps {
   dag: DAGModel;
@@ -14,7 +14,8 @@ interface DAGCardProps {
 }
 
 export function DAGCard({ dag, onClick }: DAGCardProps) {
-  const uniqueStepTypes = [...new Set(dag.steps.map((step) => step.type))];
+  const nodes = Object.values(dag.nodes);
+  const uniqueStepTypes = [...new Set(nodes.map((step) => step.type))];
 
   return (
     <Card
@@ -32,14 +33,14 @@ export function DAGCard({ dag, onClick }: DAGCardProps) {
           <CardDescription>{dag.description}</CardDescription>
         )}
         <CardDescription>
-          {dag.steps.length} step{dag.steps.length !== 1 ? "s" : ""}
+          {nodes.length} step{nodes.length !== 1 ? "s" : ""}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1">
             <Workflow className="h-4 w-4" />
-            <span>{dag.steps.length} nodes</span>
+            <span>{nodes.length} nodes</span>
           </div>
           <div className="flex items-center gap-1">
             <User className="h-4 w-4" />
@@ -48,7 +49,7 @@ export function DAGCard({ dag, onClick }: DAGCardProps) {
         </div>
 
         {/* Step Types Preview */}
-        {dag.steps.length > 0 && (
+        {nodes.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
             {uniqueStepTypes.slice(0, 3).map((type) => (
               <span

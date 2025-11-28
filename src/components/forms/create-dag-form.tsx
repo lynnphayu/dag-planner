@@ -1,24 +1,25 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import * as z from "zod";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { DAGModel, useDAGMutations } from "@/hooks/use-dag";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import type { DAGModel } from "@/hooks/dag";
+import { useDAGMutations } from "@/hooks/dag";
 
 // Form schema for validation
 const createDAGSchema = z.object({
@@ -67,9 +68,9 @@ export function CreateDAGForm({ onSuccess, onCancel }: CreateDAGFormProps) {
       // Create the DAG via API
       const newDAG: DAGModel = {
         id: crypto.randomUUID(),
-        steps: [],
         name: values.name,
         description: values.description || "",
+        nodes: {},
         inputSchema: parsedInputSchema,
       };
 
@@ -90,7 +91,7 @@ export function CreateDAGForm({ onSuccess, onCancel }: CreateDAGFormProps) {
       toast.error(
         `Failed to create DAG: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     } finally {
       setIsSubmitting(false);

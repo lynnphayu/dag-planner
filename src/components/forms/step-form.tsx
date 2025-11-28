@@ -1,14 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { Edge, Node } from "@xyflow/react";
+import { X } from "lucide-react";
+import type { Control, Resolver } from "react-hook-form";
 import { useForm } from "react-hook-form";
+
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import * as z from "zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormItem, FormLabel } from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -16,29 +17,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import type { ConditionParams, DAGModel } from "@/hooks/dag";
+import { useDAGMutations } from "@/hooks/dag";
+import type { NodeData } from "@/store/flow-store";
 import {
-  JoinForm,
-  FilterForm,
-  MapForm,
   ConditionForm,
-  HTTPForm,
-  QueryForm,
-  InsertForm,
-  UpdateForm,
+  CronAdapterForm,
   DeleteForm,
-  InputSchemaForm,
-  OutputSchemaForm,
-} from "./step-form-params";
-import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
-import { NodeData } from "@/store/flow-store";
-import { Edge, Node } from "@xyflow/react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { ConditionParams, DAGModel, useDAGMutations } from "@/hooks/use-dag";
-import { useEffect } from "react";
-import { useTranslation } from "react-i18next";
+  FilterForm,
+  HTTPAdapterForm,
+  HTTPForm,
+  InsertForm,
+  JoinForm,
+  MapForm,
+  QueryForm,
+  UpdateForm,
+} from "./step-params";
+import Fields from "./step-params/fields";
 
 // Define the step types
 export const StepType = z.enum([
@@ -51,6 +46,7 @@ export const StepType = z.enum([
   "map",
   "condition",
   "http",
+  "adapter",
 ]);
 
 // Define the operators
@@ -76,11 +72,10 @@ const JoinType = z.enum(["inner", "left", "right"]);
 const BaseStepSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
-  then: z.array(z.string()).optional(),
-  dependsOn: z.array(z.string()).optional(),
+  dependencies: z.array(z.string()).optional(),
+  dependents: z.array(z.string()).optional(),
 });
 
-// Define the condition schema
 const ConditionSchema = z
   .union([
     z.string(),
@@ -111,128 +106,150 @@ const ConditionSchema = z
     }
   });
 
-const CustomJSONSchema = z
-  .union([z.record(z.any()), z.string()])
-  .transform((val, ctx) => {
-    if (typeof val === "string") {
-      try {
-        return JSON.parse(val);
-      } catch (_e) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Invalid JSON format",
-        });
-      }
-    } else {
-      return val;
-    }
-  })
-  .optional();
-const DbOperationParamsSchema = z.object({
+const CustomJSONSchema = z.record(z.any());
+// z.string().transform((val, ctx) => {
+//   try {
+//     return JSON.parse(val) as Record<string, unknown>;
+//   } catch (_e) {
+//     ctx.addIssue({
+//       code: "custom",
+//       message: "Invalid JSON format",
+//     });
+//     return z.NEVER;
+//   }
+// });
+
+const DbOpsSchema = z.object({
   table: z.string(),
+
   where: CustomJSONSchema.optional(),
-  // queryParams: QueryParamsSchema.optional(),
-  // insertParams: InsertParamsSchema.optional(),
-  // updateParams: UpdateParamsSchema.optional(),
-  // deleteParams: DeleteParamsSchema.optional(),
 });
-// Define the params schemas
-const QueryParamsSchema = DbOperationParamsSchema.extend({
+
+const QueryParamsSchema = z.object({
   type: z.literal("query"),
-  select: z
-    .union([
-      z.string().transform((val) => val.split(",").map((s) => s.trim())),
-      z.array(z.string()),
-    ])
-    .optional(),
-}).merge(BaseStepSchema);
+  input: CustomJSONSchema.optional(),
+  meta: DbOpsSchema.extend({
+    select: z
+      .union([z.string(), z.array(z.string())])
+      .transform((x) => (typeof x === "string" ? [x] : x))
+      .optional(),
+  }),
+});
 
-const InsertParamsSchema = DbOperationParamsSchema.extend({
+const InsertParamsSchema = z.object({
   type: z.literal("insert"),
-  map: z.record(z.any()),
-}).merge(BaseStepSchema);
+  input: CustomJSONSchema.optional(),
+  meta: DbOpsSchema.extend({
+    map: z.record(z.any()),
+  }),
+});
 
-const UpdateParamsSchema = DbOperationParamsSchema.extend({
+const UpdateParamsSchema = z.object({
   type: z.literal("update"),
-  set: z.record(z.any()),
-}).merge(BaseStepSchema);
+  input: CustomJSONSchema.optional(),
+  meta: DbOpsSchema.extend({
+    set: CustomJSONSchema,
+  }),
+});
 
-const DeleteParamsSchema = DbOperationParamsSchema.extend({
+const DeleteParamsSchema = z.object({
   type: z.literal("delete"),
-}).merge(BaseStepSchema);
+  input: CustomJSONSchema.optional(),
+  meta: DbOpsSchema.extend({}),
+});
 
-const JoinParamsSchema = z
-  .object({
-    type: z.literal("join"),
-    on: z.record(z.string()),
+const JoinParamsSchema = z.object({
+  type: z.literal("join"),
+  input: CustomJSONSchema.optional(),
+  meta: z.object({
+    on: CustomJSONSchema,
     joinType: JoinType,
     left: z.string(),
     right: z.string(),
-  })
-  .merge(BaseStepSchema);
+  }),
+});
 
-const FilterParamsSchema = z
-  .object({
-    type: z.literal("filter"),
+const FilterParamsSchema = z.object({
+  type: z.literal("filter"),
+  input: CustomJSONSchema.optional(),
+  meta: z.object({
     filter: CustomJSONSchema,
-  })
-  .merge(BaseStepSchema);
+  }),
+});
 
-const MapParamsSchema = z
-  .object({
-    type: z.literal("map"),
+const MapParamsSchema = z.object({
+  type: z.literal("map"),
+  input: CustomJSONSchema.optional(),
+  meta: z.object({
     function: z.string(),
-  })
-  .merge(BaseStepSchema);
+  }),
+});
 
-const ConditionParamsSchema = z
-  .object({
-    type: z.literal("condition"),
+const ConditionParamsSchema = z.object({
+  type: z.literal("condition"),
+  input: CustomJSONSchema.optional(),
+  meta: z.object({
     if: ConditionSchema,
-    else: z.array(z.string()),
-  })
-  .merge(BaseStepSchema);
+    else: z
+      .union([z.string(), z.array(z.string())])
+      .transform((val) => (typeof val === "string" ? [val] : val))
+      .optional(),
+  }),
+});
 
-const HTTPParamsSchema = z
-  .object({
-    type: z.literal("http"),
+const HTTPParamsSchema = z.object({
+  type: z.literal("http"),
+  input: CustomJSONSchema.optional(),
+  meta: z.object({
     method: HTTPMethod,
     url: z.string().url(),
     headers: CustomJSONSchema.optional(),
     body: CustomJSONSchema.optional(),
     query: CustomJSONSchema.optional(),
-  })
-  .merge(BaseStepSchema);
+  }),
+});
 
-export const InputParamsSchema = z
-  .object({
-    type: z.literal("input"),
-    schema: CustomJSONSchema.optional(),
-  })
-  .merge(BaseStepSchema);
+const HTTPAdapterParamsSchema = z.object({
+  type: z.literal("http_adapter"),
+  input: CustomJSONSchema.optional(),
+  meta: z.object({
+    method: HTTPMethod,
+    path: z.string().url(),
+    headers: CustomJSONSchema.optional(),
+    body: CustomJSONSchema.optional(),
+    query: CustomJSONSchema.optional(),
+  }),
+});
 
-export const OutputPramsSchema = z
-  .object({
-    type: z.literal("output"),
-    schema: CustomJSONSchema.optional(),
-    source: z.string(),
-  })
-  .merge(BaseStepSchema);
+const CronAdapterParamsSchema = z.object({
+  type: z.literal("schedular_adapter"),
+  input: CustomJSONSchema.optional(),
+  meta: z.object({
+    schedule: z.string(),
+  }),
+});
 
-// Define the main step schema
-export const stepSchema = z.discriminatedUnion("type", [
-  QueryParamsSchema,
-  InsertParamsSchema,
-  UpdateParamsSchema,
-  DeleteParamsSchema,
-  ConditionParamsSchema,
-  JoinParamsSchema,
-  FilterParamsSchema,
-  MapParamsSchema,
-  HTTPParamsSchema,
-  InputParamsSchema,
-  OutputPramsSchema,
-]);
+// Define the main step schema (variants identified by data.type)
+export const stepSchema = BaseStepSchema.merge(
+  z.object({
+    data: z.discriminatedUnion("type", [
+      QueryParamsSchema,
+      InsertParamsSchema,
+      UpdateParamsSchema,
+      DeleteParamsSchema,
+      ConditionParamsSchema,
+      JoinParamsSchema,
+      FilterParamsSchema,
+      MapParamsSchema,
+      HTTPParamsSchema,
+      HTTPAdapterParamsSchema,
+      CronAdapterParamsSchema,
+    ]),
+  }),
+);
+export type StepFormInput = z.input<typeof stepSchema>;
+export type StepFormOutput = z.output<typeof stepSchema>;
+export type TFormControl = Control<StepFormInput, unknown, StepFormOutput>;
 
 export function StepForm({
   getDag,
@@ -253,12 +270,62 @@ export function StepForm({
   updateNode: (nodeId: string, data: NodeData) => void;
   wouldCreateCycle: (sourceId: string, targetId: string) => boolean;
 }) {
-  const form = useForm<
-    z.input<typeof stepSchema>,
-    unknown,
-    z.output<typeof stepSchema>
-  >({
-    resolver: zodResolver(stepSchema),
+  // const defaultValues = ((values: NodeData) => {
+  //   const data = values satisfies StepFormOutput;
+  //   const defaults: Record<string, unknown> = data;
+  //   switch (data.data.type) {
+  //     case "query":
+  //     case "insert":
+  //     case "update":
+  //     case "delete":
+  //       defaults.where = JSON.stringify(data.data.meta.where || {}, null, 2);
+  //       break;
+  //     case "join":
+  //       defaults.on = JSON.stringify(data.data.meta.on || {}, null, 2);
+  //       break;
+  //     case "filter":
+  //       defaults.filter = JSON.stringify(data.data.meta.filter || {}, null, 2);
+  //       break;
+  //     case "map":
+  //       defaults.function = JSON.stringify(
+  //         data.data.meta.function || {},
+  //         null,
+  //         2,
+  //       );
+  //       break;
+  //     case "condition":
+  //       defaults.if = JSON.stringify(data.data.meta.if || {}, null, 2);
+  //       defaults.else = JSON.stringify(data.data.meta.else || {}, null, 2);
+  //       break;
+  //     case "http":
+  //       defaults.headers = JSON.stringify(
+  //         data.data.meta.headers || {},
+  //         null,
+  //         2,
+  //       );
+  //       defaults.body = JSON.stringify(data.data.meta.body || {}, null, 2);
+  //       defaults.query = JSON.stringify(data.data.meta.query || {}, null, 2);
+  //       break;
+  //     case "http_adapter":
+  //       defaults.headers = JSON.stringify(
+  //         data.data.meta.headers || {},
+  //         null,
+  //         2,
+  //       );
+  //       defaults.body = JSON.stringify(data.data.meta.body || {}, null, 2);
+  //       defaults.query = JSON.stringify(data.data.meta.query || {}, null, 2);
+  //       break;
+  //     default:
+  //   }
+  //   defaults.input = JSON.stringify(data.data.input || {}, null, 2);
+  //   return defaults;
+  // })(step.data) as z.input<typeof stepSchema>;
+  const form = useForm<StepFormInput, unknown, StepFormOutput>({
+    resolver: zodResolver(stepSchema) as unknown as Resolver<
+      StepFormInput,
+      unknown,
+      StepFormOutput
+    >,
     defaultValues: step.data,
   });
   const { t } = useTranslation();
@@ -275,14 +342,23 @@ export function StepForm({
   };
 
   const handleEdgeRemove = (edgeId: string) => {
-    console.log(form.getValues("then"));
+    if (
+      step.data.data?.type === "http_adapter" ||
+      step.data.data?.type === "schedular_adapter"
+    ) {
+      return;
+    } // Adapters don't have edges
+
     updateNode(step.id, {
       ...step.data,
-      then: form.getValues("then")?.filter((id) => id !== edgeId) || [],
+      dependencies:
+        form.getValues("dependencies")?.filter((id: string) => id !== edgeId) ||
+        [],
     });
     form.setValue(
-      "then",
-      form.getValues("then")?.filter((id) => id !== edgeId) || []
+      "dependencies",
+      form.getValues("dependencies")?.filter((id: string) => id !== edgeId) ||
+        [],
     );
     removeEdge(edgeId);
   };
@@ -292,7 +368,19 @@ export function StepForm({
   async function onSubmit(values: z.output<typeof stepSchema>) {
     console.log("Step form submitted with values:", values);
     try {
-      updateNode(step.id, values);
+      // Handle manual transformation for fields that allow string input
+      const data = { ...values };
+      if (data.data?.type === "query") {
+        data.data.meta.select =
+          data.data.meta.select?.map((s) => s.trim()).filter(Boolean) || [];
+      }
+      if (data.data?.type === "condition" && data.data.meta.else) {
+        data.data.meta.else = data.data.meta.else
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+
+      updateNode(step.id, data);
       const dag = getDag();
       console.log("Current DAG:", dag);
       if (!dag) {
@@ -318,11 +406,11 @@ export function StepForm({
     toast.error("Please fix the form errors before submitting");
   };
 
-  useEffect(() => {
-    console.log("Step data for form:", step.data);
-    console.log("Step ID:", step.id);
-    form.reset(step.data);
-  }, [step.id, form, step.data]);
+  // useEffect(() => {
+  //   console.log("Step data for form:", defaultValues);
+  //   console.log("Step ID:", step.id);
+  //   form.reset(defaultValues);
+  // }, [step.id, form, defaultValues]);
 
   return (
     <Form {...form}>
@@ -333,93 +421,77 @@ export function StepForm({
         }}
         className="space-y-4"
       >
-        {form.watch("type") !== "input" && form.watch("type") !== "output" && (
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter step name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <Fields.Text control={form.control} name="name" label="Name" />
+        <Fields.Select
+          control={form.control}
+          name="data.type"
+          label={
+            form.watch("data.type").includes("adapter")
+              ? "Adapter Type"
+              : "Step Type"
+          }
+          options={
+            form.watch("data.type").includes("adapter")
+              ? [
+                  { value: "http_adapter", label: "HTTP Adapter" },
+                  { value: "schedular_adapter", label: "Cron Adapter" },
+                ]
+              : [
+                  { value: "query", label: "Query" },
+                  { value: "insert", label: "Insert" },
+                  { value: "update", label: "Update" },
+                  { value: "delete", label: "Delete" },
+                  { value: "join", label: "Join" },
+                  { value: "filter", label: "Filter" },
+                  { value: "map", label: "Map" },
+                  { value: "condition", label: "Condition" },
+                  { value: "http", label: "HTTP" },
+                ]
+          }
+        />
+        <Fields.Json control={form.control} name="data.input" label="Input" />
+        {form.watch("data.type") === "query" && (
+          <QueryForm control={form.control} />
         )}
-        {form.watch("type") !== "input" && (
-          <FormField
-            control={form.control}
-            name="type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Step Type</FormLabel>
-                <Select
-                  onValueChange={(e) => {
-                    form.setValue("name", "output");
-                    field.onChange(e);
-                  }}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a step type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="input">Input</SelectItem>
-                    <SelectItem value="output">Output</SelectItem>
-                    <SelectItem value="query">Query</SelectItem>
-                    <SelectItem value="insert">Insert</SelectItem>
-                    <SelectItem value="update">Update</SelectItem>
-                    <SelectItem value="delete">Delete</SelectItem>
-                    <SelectItem value="join">Join</SelectItem>
-                    <SelectItem value="filter">Filter</SelectItem>
-                    <SelectItem value="map">Map</SelectItem>
-                    <SelectItem value="condition">Condition</SelectItem>
-                    <SelectItem value="http">HTTP</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-        {form.watch("type") === "query" && <QueryForm control={form.control} />}
-        {form.watch("type") === "insert" && (
+        {form.watch("data.type") === "insert" && (
           <InsertForm control={form.control} />
         )}
-        {form.watch("type") === "update" && (
+        {form.watch("data.type") === "update" && (
           <UpdateForm control={form.control} />
         )}
-        {form.watch("type") === "delete" && (
+        {form.watch("data.type") === "delete" && (
           <DeleteForm control={form.control} />
         )}
-        {form.watch("type") === "join" && <JoinForm control={form.control} />}
-        {form.watch("type") === "filter" && (
+        {form.watch("data.type") === "join" && (
+          <JoinForm control={form.control} />
+        )}
+        {form.watch("data.type") === "filter" && (
           <FilterForm control={form.control} />
         )}
-        {form.watch("type") === "map" && <MapForm control={form.control} />}
-        {form.watch("type") === "condition" && (
+        {form.watch("data.type") === "map" && (
+          <MapForm control={form.control} />
+        )}
+        {form.watch("data.type") === "condition" && (
           <ConditionForm control={form.control} />
         )}
-        {form.watch("type") === "http" && <HTTPForm control={form.control} />}
-        {form.watch("type") === "input" && (
-          <InputSchemaForm control={form.control} />
+        {form.watch("data.type") === "http" && (
+          <HTTPForm control={form.control} />
         )}
-        {form.watch("type") === "output" && (
-          <OutputSchemaForm control={form.control} />
+        {form.watch("data.type") === "http_adapter" && (
+          <HTTPAdapterForm control={form.control} />
         )}
-        {form.watch("type") !== "input" && form.watch("type") !== "output" && (
+        {form.watch("data.type") === "schedular_adapter" && (
+          <CronAdapterForm control={form.control} />
+        )}
+        {!form.watch("data.type").includes("adapter") && (
           <FormItem>
             <FormLabel>Then (Next Steps)</FormLabel>
             <Select
               onValueChange={(targetId) => {
                 if (!wouldCreateCycle(step.id, targetId)) {
                   handleEdgeAdd(step.id, targetId);
-                  form.setValue("then", [
-                    ...(form.getValues("then") || []),
+                  form.setValue("dependencies", [
+                    ...(form.getValues("dependencies") || []),
                     targetId,
                   ]);
                 } else {
@@ -441,7 +513,7 @@ export function StepForm({
                     (node) =>
                       node.id !== step.id &&
                       !outgoingEdges.some((e) => e.target === node.id) &&
-                      node.id !== "input"
+                      !node.data.data?.type.includes("adapter"),
                   )
                   .map((node) => (
                     <SelectItem key={node.id} value={node.id}>
@@ -451,7 +523,7 @@ export function StepForm({
               </SelectContent>
             </Select>
             <div className="flex flex-wrap gap-2 mt-2">
-              {step.data.then?.map((stepId) => {
+              {step.data.dependencies?.map((stepId: string) => {
                 return (
                   <Badge
                     key={stepId}
@@ -467,7 +539,7 @@ export function StepForm({
             </div>
           </FormItem>
         )}
-        {form.watch("type") !== "input" && form.watch("type") !== "output" && (
+        {!form.watch("data.type").includes("adapter") && (
           <FormItem>
             <FormLabel>Depends On</FormLabel>
             <Select
@@ -494,9 +566,11 @@ export function StepForm({
                     (node) =>
                       node.id !== step.id &&
                       !incomingEdges.some((e) => e.source === node.id) &&
-                      !step.data.then?.includes(node.id) &&
-                      !(step.data as ConditionParams).else?.includes(node.id) &&
-                      node.id !== "input"
+                      !node.data.data?.type.includes("adapter") &&
+                      !step.data.dependencies?.includes(node.id) &&
+                      !(
+                        step.data.data as unknown as ConditionParams
+                      ).else?.includes(node.id),
                   )
                   .map((node) => (
                     <SelectItem key={node.id} value={node.id}>

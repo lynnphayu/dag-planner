@@ -1,7 +1,4 @@
-import { create } from "zustand";
-import {
-  applyEdgeChanges,
-  applyNodeChanges,
+import type {
   Edge,
   EdgeChange,
   Node,
@@ -9,21 +6,19 @@ import {
   OnConnect,
   OnEdgesChange,
 } from "@xyflow/react";
-import { z } from "zod";
-
-import { ConditionParams, DAGModel } from "@/hooks/use-dag";
+import { applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
+import type { z } from "zod";
+import { create } from "zustand";
+import type { stepSchema } from "@/components/forms/step-form";
+import { StepType } from "@/components/forms/step-form";
 import { GRID_SIZE, NODE_PREF } from "@/config/node";
-import {
-  InputParamsSchema,
-  stepSchema,
-  StepType,
-} from "@/components/forms/step-form";
+import type { Adapter, ConditionParams, DAGModel, Step } from "@/hooks/dag";
 export type NodeData = z.infer<typeof stepSchema>;
 
 interface FlowState {
   dag: DAGModel | null;
   getDag: () => DAGModel | null;
-  setDAG: (dag: DAGModel) => void;
+  setDAG: (dag: DAGModel, adapters?: Adapter[]) => void;
   initializeNewDAG: (id: string, inputSchema?: Record<string, unknown>) => void;
   nodes: Node<NodeData>[];
   edges: { id: string; source: string; target: string }[];
@@ -32,7 +27,7 @@ interface FlowState {
   selectedNode: () => Node<NodeData> | null;
   setNodes: (nodes: Node<NodeData>[]) => void;
   setEdges: (edges: { id: string; source: string; target: string }[]) => void;
-  addNode: () => void;
+  addNode: (data?: Partial<NodeData>) => void;
   updateNode: (nodeId: string, data: NodeData) => void;
   openSheet: (nodeId: string) => void;
   closeSheet: () => void;
@@ -73,7 +68,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     return nodes;
   },
 
-  setDAG: (dag: DAGModel) => {
+  setDAG: async (dag: DAGModel, adapters: Adapter[] = []) => {
     const nodes: Node<NodeData>[] = [];
     const edges: Edge[] = [];
     const visited = new Set<string>();
@@ -81,12 +76,12 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     const positionNode = (
       stepId: string,
       column: number,
-      row: number
+      row: number,
     ): void => {
       if (visited.has(stepId)) return;
       visited.add(stepId);
 
-      const step = dag.steps.find((s) => s.id === stepId);
+      const step = dag.nodes[stepId];
       if (!step) return;
 
       // Add node
@@ -96,14 +91,14 @@ export const useFlowStore = create<FlowState>((set, get) => ({
           x: column * (NODE_PREF.style.width + GRID_SIZE * 2),
           y: row * (NODE_PREF.style.height + GRID_SIZE * 2),
         },
-        data: step as NodeData,
+        data: step,
         ...NODE_PREF,
         style: NODE_PREF.style,
       });
 
       // Add edges and process child nodes
-      if (step.then)
-        step.then.forEach((targetId, index) => {
+      if (step.dependents)
+        step.dependents.forEach((targetId: string, index: number) => {
           edges.push({
             id: `edge-${step.id}-${targetId}`,
             source: step.id,
@@ -113,71 +108,59 @@ export const useFlowStore = create<FlowState>((set, get) => ({
           positionNode(targetId, column + 1, row + index);
         });
 
-      if (step.type === "condition" && (step as ConditionParams).else) {
-        (step as ConditionParams).else?.forEach((targetId, index) => {
-          edges.push({
-            id: `edge-${step.id}-${targetId}`,
-            source: step.id,
-            target: targetId,
-          });
-          positionNode(targetId, column + 1, row + index + 1);
-        });
+      if (
+        step.data.type === "condition" &&
+        (step.data.meta as ConditionParams).else
+      ) {
+        (step.data.meta as ConditionParams).else?.forEach(
+          (targetId: string, index: number) => {
+            edges.push({
+              id: `edge-${step.id}-${targetId}`,
+              source: step.id,
+              target: targetId,
+            });
+            positionNode(targetId, column + 1, row + index + 1);
+          },
+        );
       }
     };
 
     // Find root nodes (nodes with no incoming edges)
-    const rootNodes = dag.steps.filter(
+    const rootNodes = Object.values(dag.nodes).filter(
       (step) =>
-        !dag.steps.some(
+        !Object.values(dag.nodes).some(
           (s) =>
-            s.then?.includes(step.id) ||
-            (s as ConditionParams).else?.includes(step.id)
-        )
+            s.dependents?.includes(step.id) ||
+            (s.data.meta as ConditionParams).else?.includes(step.id),
+        ),
     );
 
     rootNodes.forEach((root, index) => {
       positionNode(root.id, 1, index);
     });
-    const newNodes: Node<NodeData>[] = [
-      {
-        id: "input",
-        position: { x: 0, y: 0 },
-        data: {
-          id: "input",
-          type: "input",
-          schema: dag.inputSchema,
-        } as NodeData,
-        ...NODE_PREF,
-        type: "InputNode" as string | undefined,
-        style: {
-          ...NODE_PREF.style,
-          backgroundColor: "var(--primary)",
-          color: "var(--primary-foreground)",
-        },
-      },
-      // {
-      //   id: "output",
-      //   position: {
-      //     x: 0,
-      //     y: NODE_PREF.style.height + GRID_SIZE * 2,
-      //   },
-      //   data: {
-      //     id: "output",
-      //     type: "output",
-      //     schema: dag.outputSchema,
-      //   } as NodeData,
-      //   ...NODE_PREF,
-      //   type: "OutputNode" as string | undefined,
-      //   style: {
-      //     ...NODE_PREF.style,
-      //     backgroundColor: "var(--primary)",
-      //     color: "var(--primary-foreground)",
-      //   },
-      // },
-    ];
-    newNodes.push(...nodes);
 
-    set({ nodes: newNodes, edges, dag });
+    // Add adapter nodes to the left of the canvas
+    adapters.forEach((adapter: Adapter, index: number) => {
+      const adapterData: NodeData = {
+        id: adapter.id,
+        data: adapter,
+        name: adapter.name,
+      };
+
+      nodes.push({
+        ...NODE_PREF,
+        id: `adapter-${adapter.id}`,
+        type: "AdapterNode",
+        position: {
+          x: 0,
+          y: index * (NODE_PREF.style.height + GRID_SIZE * 2),
+        },
+        data: adapterData,
+        style: NODE_PREF.style,
+      });
+    });
+
+    set({ nodes, edges, dag });
   },
 
   initializeNewDAG: (id: string, inputSchema = {}) => {
@@ -185,30 +168,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       id,
       name: id,
       description: "",
-      steps: [],
+      nodes: {},
       inputSchema,
-    };
-
-    const inputNode: Node<NodeData> = {
-      id: "input",
-      position: { x: 0, y: 0 },
-      data: {
-        id: "input",
-        type: "input",
-        schema: inputSchema,
-      } as NodeData,
-      ...NODE_PREF,
-      type: "InputNode" as string | undefined,
-      style: {
-        ...NODE_PREF.style,
-        backgroundColor: "var(--primary)",
-        color: "var(--primary-foreground)",
-      },
     };
 
     set({
       dag: newDAG,
-      nodes: [inputNode],
+      nodes: [],
       edges: [],
       isSheetOpen: false,
       selectedNodeId: null,
@@ -222,12 +188,13 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   updateNode: (nodeId: string, data: NodeData) => {
     const { nodes, dag } = get();
     const newNodes = nodes.map((n) => (n.id === nodeId ? { ...n, data } : n));
-    const newSteps = dag?.steps.map((step) =>
-      step.id === nodeId ? { ...step, ...data } : step
-    );
+    const newSteps = {
+      ...dag?.nodes,
+      [nodeId]: data,
+    };
     set({
       nodes: newNodes,
-      dag: { ...dag, steps: newSteps } as DAGModel,
+      dag: { ...dag, nodes: newSteps } as DAGModel,
     });
   },
 
@@ -265,10 +232,10 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
     // Create a map of node dependencies
     const graph: Record<string, string[]> = {};
-    get().edges.forEach((edge) => {
+    for (const edge of get().edges) {
       if (!graph[edge.source]) graph[edge.source] = [];
       graph[edge.source].push(edge.target);
-    });
+    }
 
     // Add the potential new edge
     if (!graph[sourceId]) graph[sourceId] = [];
@@ -308,10 +275,11 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         position: pos,
         data: {
           id: crypto.randomUUID(),
-          table: "",
+          data: {
+            type: "query",
+            meta: { table: "", where: {}, select: [] },
+          },
           name: "",
-          type: "query",
-          select: [],
         },
         ...NODE_PREF,
       })
@@ -323,7 +291,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     return pos;
   },
 
-  addNode: () => {
+  addNode: (data) => {
     const { nodes, findAvailablePosition } = get();
     const pos = findAvailablePosition({ x: 0, y: 0 });
     const newNode = {
@@ -335,7 +303,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
         name: "",
         type: StepType.enum.query,
         select: [],
-      },
+        ...data,
+      } as NodeData,
       ...NODE_PREF,
     };
     set({ nodes: [...nodes, newNode] });
@@ -344,7 +313,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     const { nodes, edges } = get();
     const newNodes = nodes.filter((n) => n.id !== nodeId);
     const newEdges = edges.filter(
-      (e) => e.source !== nodeId && e.target !== nodeId
+      (e) => e.source !== nodeId && e.target !== nodeId,
     );
     set({ nodes: newNodes, edges: newEdges });
   },
@@ -359,21 +328,30 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   getDag: () => {
     const { nodes, dag } = get();
     if (!dag) throw new Error("DAG is not set");
-    const inputNode = nodes.find((n) => n.id === "input");
-    // const outputNode = nodes.find((n) => n.id === "output");
+
+    const nodesRecord: Record<string, Step> = {};
+    nodes.forEach((node) => {
+      // Skip adapter nodes
+      if (
+        node.data.data.type === "http_adapter" ||
+        node.data.data.type === "schedular_adapter"
+      )
+        return;
+
+      // Reconstruct Step structure
+      const { id, name, dependencies, dependents, data } = node.data;
+      nodesRecord[node.id] = {
+        id,
+        name,
+        dependencies,
+        dependents,
+        data: data as Step["data"],
+      };
+    });
+
     return {
-      id: dag.id,
-      name: dag.name,
-      description: dag.description,
-      steps: nodes
-        .filter((n) => n.id !== "input")
-        .map((n) => n.data) as NodeData[],
-      inputSchema: inputNode?.data
-        ? (inputNode.data as z.infer<typeof InputParamsSchema>).schema
-        : undefined,
-      // outputSchema: outputNode?.data
-      //   ? (outputNode.data as z.infer<typeof OutputPramsSchema>).schema
-      //   : undefined,
+      ...dag,
+      nodes: nodesRecord,
     } as DAGModel;
   },
 }));

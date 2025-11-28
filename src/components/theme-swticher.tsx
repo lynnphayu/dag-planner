@@ -1,9 +1,9 @@
 "use client";
 
-import * as React from "react";
+import type * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Moon, Sun } from "lucide-react";
-import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { useTheme } from "next-themes";
+import type * as React from "react";
 
 import { Button } from "@/components/ui/button";
 import {

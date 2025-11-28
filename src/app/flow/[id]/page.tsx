@@ -1,27 +1,35 @@
 "use client";
+import { ReactFlowProvider } from "@xyflow/react";
+import { useParams } from "next/navigation";
+import { useEffect } from "react";
 import { FlowComponent } from "@/components/flow/flow-editor";
 import { StepForm } from "@/components/forms/step-form";
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
+  Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
-  Sheet,
 } from "@/components/ui/sheet";
+import { useAdapters, useDAG } from "@/hooks/dag";
 import { useFlowStore } from "@/store/flow-store";
-import { ReactFlowProvider } from "@xyflow/react";
-import { useDAG } from "@/hooks/use-dag";
-import { useParams } from "next/navigation";
-import { useEffect } from "react";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
 
 export default function FlowPage(props: Record<string, unknown>) {
   const { id: dagId } = useParams();
-  const { dag: dagResponse, isLoading, isError } = useDAG(dagId as string);
+  const {
+    data: dagResponse,
+    isLoading: isDagLoading,
+    error: isDagError,
+  } = useDAG(dagId as string);
+  const { data: adapters } = useAdapters(dagId as string);
+
+  const isLoading = isDagLoading;
+  const isError = isDagError;
 
   const {
     isSheetOpen,
@@ -39,8 +47,8 @@ export default function FlowPage(props: Record<string, unknown>) {
 
   // Initialize flow when DAG data is loaded
   useEffect(() => {
-    if (dagResponse) setDAG(dagResponse);
-  }, [dagResponse, setDAG]);
+    if (dagResponse) setDAG(dagResponse, adapters);
+  }, [dagResponse, adapters, setDAG]);
 
   if (isLoading) {
     return <div>Loading DAG...</div>;

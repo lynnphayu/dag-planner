@@ -1,29 +1,30 @@
 "use client";
 
+import { ReactFlowProvider } from "@xyflow/react";
+import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 import { FlowComponent } from "@/components/flow/flow-editor";
 import { StepForm } from "@/components/forms/step-form";
 import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
+  Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
-  Sheet,
 } from "@/components/ui/sheet";
 import { useFlowStore } from "@/store/flow-store";
-import { ReactFlowProvider } from "@xyflow/react";
-import { useEffect } from "react";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
-import { useSearchParams } from "next/navigation";
 
 export default function NewDAGPage() {
   const searchParams = useSearchParams();
   const dagName = searchParams.get("name") || "new-dag";
-  const inputSchema = searchParams.get("schema")
-    ? JSON.parse(decodeURIComponent(searchParams.get("schema")!))
+  const schemaParam = searchParams.get("schema");
+  const inputSchema = schemaParam
+    ? JSON.parse(decodeURIComponent(schemaParam))
     : {};
 
   const {
