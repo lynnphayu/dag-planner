@@ -14,18 +14,30 @@ interface MultiSelectProps {
   disabled?: boolean;
   size?: "sm" | "default";
   maxDisplay?: number;
+  // FormControl bridge props
+  id?: string;
+  onBlur?: React.FocusEventHandler<HTMLDivElement>;
+  "aria-describedby"?: string;
+  "aria-invalid"?: boolean;
 }
 
-function MultiSelect({
-  options,
-  value = [],
-  onChange,
-  placeholder = "Select items...",
-  className,
-  disabled = false,
-  size = "default",
-  maxDisplay = 3,
-}: MultiSelectProps) {
+const MultiSelect = React.forwardRef<HTMLDivElement, MultiSelectProps>(function MultiSelect(
+  {
+    options,
+    value = [],
+    onChange,
+    placeholder = "Select items...",
+    className,
+    disabled = false,
+    size = "default",
+    maxDisplay = 3,
+    id,
+    onBlur,
+    "aria-describedby": ariaDescribedBy,
+    "aria-invalid": ariaInvalid,
+  },
+  ref,
+) {
   const [isOpen, setIsOpen] = React.useState(false);
   const triggerRef = React.useRef<HTMLDivElement>(null);
   const contentRef = React.useRef<HTMLDivElement>(null);
@@ -79,7 +91,14 @@ function MultiSelect({
     <div className="relative">
       {/* biome-ignore lint/a11y/useSemanticElements: Using div instead of button to allow nested interactive elements (remove/clear buttons) */}
       <div
-        ref={triggerRef}
+        ref={(node) => {
+          // Chain refs so both internal logic and RHF/FormControl can access the trigger
+          // External ref from forwardRef
+          if (typeof ref === "function") ref(node as HTMLDivElement);
+          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          // Internal trigger ref
+          (triggerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        }}
         role="button"
         tabIndex={disabled ? -1 : 0}
         onClick={() => {
@@ -95,8 +114,12 @@ function MultiSelect({
             }
           }
         }}
+        onBlur={onBlur}
         aria-disabled={disabled}
         aria-expanded={isOpen}
+        id={id}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         className={cn(
           "border-input data-[placeholder]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-full min-h-9 items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer",
           disabled && "opacity-50 cursor-not-allowed",
@@ -194,7 +217,7 @@ function MultiSelect({
       </div>
     </div>
   );
-}
+});
 
 MultiSelect.displayName = "MultiSelect";
 
