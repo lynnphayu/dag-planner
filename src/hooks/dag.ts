@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
 
 import type { z } from "zod";
-import type { Operator } from "@/components/forms/step-form";
+import type { stepSchema } from "@/components/forms/step-form";
 import API_CONFIG from "@/config/api";
 import type { NodeData } from "@/store/flow-store";
 
@@ -13,90 +13,18 @@ export interface DAG {
   edges: Edge[];
 }
 
-interface BaseStep {
-  id: string;
-  name?: string;
-  dependencies?: string[]; // renamed from dependsOn
-  dependents?: string[]; // renamed from then
-}
-
-// Query params
-export interface QueryParams {
-  table: string;
-  where?: Record<string, unknown>;
-  select?: string[];
-}
-
-// Insert params
-export interface InsertParams {
-  table: string;
-  map: Record<string, unknown>;
-}
-
-// Update params
-export interface UpdateParams {
-  table: string;
-  set: Record<string, unknown>;
-  where?: Record<string, unknown>;
-}
-
-// Delete params
-export interface DeleteParams {
-  table: string;
-  where?: Record<string, unknown>;
-}
-
-// Join params
-export interface JoinParams {
-  joinType: "inner" | "left" | "right";
-  left: string;
-  right: string;
-  on: Record<string, string>;
-}
-
-// Filter params
-export interface FilterParams {
-  filter: Record<string, unknown>;
-}
-
-// Map params
-export interface MapParams {
-  function: string;
-}
-
-export interface Condition {
-  left: string;
-  right: string;
-  operator: z.infer<typeof Operator>;
-}
-
-// Condition params
-export interface ConditionParams {
-  if: Condition;
-  else: string[];
-}
-
-// HTTP params
-export interface HTTPParams {
-  method: "get" | "post" | "put" | "delete" | "patch";
-  url: string;
-  headers?: Record<string, string>;
-  body?: Record<string, unknown>;
-  query?: Record<string, unknown>;
-}
-
-export type Step = BaseStep & {
-  data:
-  | ({ type: "query" } & { meta: QueryParams })
-  | ({ type: "insert" } & { meta: InsertParams })
-  | ({ type: "update" } & { meta: UpdateParams })
-  | ({ type: "delete" } & { meta: DeleteParams })
-  | ({ type: "join" } & { meta: JoinParams })
-  | ({ type: "filter" } & { meta: FilterParams })
-  | ({ type: "map" } & { meta: MapParams })
-  | ({ type: "condition" } & { meta: ConditionParams })
-  | ({ type: "http" } & { meta: HTTPParams });
-};
+export type Step = z.output<typeof stepSchema>;
+// BaseStep<
+//   ({ type: "query" } & { meta: QueryParams })
+//   | ({ type: "insert" } & { meta: InsertParams })
+//   | ({ type: "update" } & { meta: UpdateParams })
+//   | ({ type: "delete" } & { meta: DeleteParams })
+//   | ({ type: "join" } & { meta: JoinParams })
+//   | ({ type: "filter" } & { meta: FilterParams })
+//   | ({ type: "map" } & { meta: MapParams })
+//   | ({ type: "condition" } & { meta: ConditionParams })
+//   | ({ type: "http" } & { meta: HTTPParams })
+// >;
 
 export interface DAGModel {
   id: string;
@@ -107,7 +35,7 @@ export interface DAGModel {
 }
 
 export interface HTTPAdapter {
-  type: "http_adapter"
+  type: "http_adapter";
   meta: {
     method: "get" | "post" | "put" | "delete" | "patch";
     path: string;
@@ -200,10 +128,7 @@ export function useDAGMutations() {
       })
       .catch((e) => toast.error(`Error updating DAG - ${e.message}`));
 
-  const updateAdapter = async (
-    id: string,
-    adapter: Adapter,
-  ) =>
+  const updateAdapter = async (id: string, adapter: Adapter) =>
     fetch(API_CONFIG.ENDPOINTS.ADAPTERS.DETAIL(id), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

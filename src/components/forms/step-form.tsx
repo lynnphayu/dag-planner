@@ -1,24 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { Edge, Node } from "@xyflow/react";
-import { X } from "lucide-react";
 import type { Control, Resolver } from "react-hook-form";
 import { useForm } from "react-hook-form";
 
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormItem, FormLabel } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multiselect";
-import type { Adapter, ConditionParams, CronAdapter, DAGModel, HTTPAdapter } from "@/hooks/dag";
+import type { Adapter, CronAdapter, DAGModel, HTTPAdapter } from "@/hooks/dag";
 import { useDAGMutations } from "@/hooks/dag";
 import type { NodeData } from "@/store/flow-store";
 import {
@@ -110,17 +101,19 @@ const ConditionSchema = z
     }
   });
 
-const CustomJSONSchema = z.union([z.string(), z.record(z.any())]).transform((val, ctx) => {
-  try {
-    return typeof val === "string" ? JSON.parse(val) : val;
-  } catch (_e) {
-    ctx.addIssue({
-      code: "custom",
-      message: "Invalid JSON format",
-    });
-    return z.NEVER;
-  }
-});
+const CustomJSONSchema = z
+  .union([z.string(), z.record(z.any())])
+  .transform((val, ctx) => {
+    try {
+      return typeof val === "string" ? JSON.parse(val) : val;
+    } catch (_e) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Invalid JSON format",
+      });
+      return z.NEVER;
+    }
+  });
 
 const DbOpsSchema = z.object({
   table: z.string(),
@@ -128,7 +121,7 @@ const DbOpsSchema = z.object({
   where: CustomJSONSchema.optional(),
 });
 
-const QueryParamsSchema = z.object({
+export const QueryParamsSchema = z.object({
   type: z.literal("query"),
   input: CustomJSONSchema.optional(),
   meta: DbOpsSchema.extend({
@@ -139,7 +132,7 @@ const QueryParamsSchema = z.object({
   }),
 });
 
-const InsertParamsSchema = z.object({
+export const InsertParamsSchema = z.object({
   type: z.literal("insert"),
   input: CustomJSONSchema.optional(),
   meta: DbOpsSchema.extend({
@@ -147,7 +140,7 @@ const InsertParamsSchema = z.object({
   }),
 });
 
-const UpdateParamsSchema = z.object({
+export const UpdateParamsSchema = z.object({
   type: z.literal("update"),
   input: CustomJSONSchema.optional(),
   meta: DbOpsSchema.extend({
@@ -155,13 +148,13 @@ const UpdateParamsSchema = z.object({
   }),
 });
 
-const DeleteParamsSchema = z.object({
+export const DeleteParamsSchema = z.object({
   type: z.literal("delete"),
   input: CustomJSONSchema.optional(),
   meta: DbOpsSchema.extend({}),
 });
 
-const JoinParamsSchema = z.object({
+export const JoinParamsSchema = z.object({
   type: z.literal("join"),
   input: CustomJSONSchema.optional(),
   meta: z.object({
@@ -172,7 +165,7 @@ const JoinParamsSchema = z.object({
   }),
 });
 
-const FilterParamsSchema = z.object({
+export const FilterParamsSchema = z.object({
   type: z.literal("filter"),
   input: CustomJSONSchema.optional(),
   meta: z.object({
@@ -180,7 +173,7 @@ const FilterParamsSchema = z.object({
   }),
 });
 
-const MapParamsSchema = z.object({
+export const MapParamsSchema = z.object({
   type: z.literal("map"),
   input: CustomJSONSchema.optional(),
   meta: z.object({
@@ -188,7 +181,7 @@ const MapParamsSchema = z.object({
   }),
 });
 
-const ConditionParamsSchema = z.object({
+export const ConditionParamsSchema = z.object({
   type: z.literal("condition"),
   input: CustomJSONSchema.optional(),
   meta: z.object({
@@ -200,7 +193,7 @@ const ConditionParamsSchema = z.object({
   }),
 });
 
-const HTTPParamsSchema = z.object({
+export const HTTPParamsSchema = z.object({
   type: z.literal("http"),
   input: CustomJSONSchema.optional(),
   meta: z.object({
@@ -212,7 +205,7 @@ const HTTPParamsSchema = z.object({
   }),
 });
 
-const HTTPAdapterParamsSchema = z.object({
+export const HTTPAdapterParamsSchema = z.object({
   type: z.literal("http_adapter"),
   input: CustomJSONSchema.optional(),
   meta: z.object({
@@ -227,7 +220,7 @@ const HTTPAdapterParamsSchema = z.object({
   }),
 });
 
-const CronAdapterParamsSchema = z.object({
+export const CronAdapterParamsSchema = z.object({
   type: z.literal("schedular_adapter"),
   input: CustomJSONSchema.optional(),
   meta: z.object({
@@ -364,7 +357,7 @@ export function StepForm({
     form.setValue(
       "dependencies",
       form.getValues("dependencies")?.filter((id: string) => id !== edgeId) ||
-      [],
+        [],
     );
     removeEdge(edgeId);
   };
@@ -407,11 +400,11 @@ export function StepForm({
           // user_id: dag.user_id, TODO: add user_id properly
           user_id: "",
           name: data.name || "",
-          ...{
+          ...({
             type: data.data?.type,
-            meta: data.data.meta
-          } as HTTPAdapter | CronAdapter
-        }
+            meta: data.data.meta,
+          } as HTTPAdapter | CronAdapter),
+        };
         await updateAdapter(data.id, adapterPayload);
       } else {
         if (dag?.id) {
@@ -461,20 +454,20 @@ export function StepForm({
           options={
             form.watch("data.type").includes("adapter")
               ? [
-                { value: "http_adapter", label: "HTTP Adapter" },
-                { value: "schedular_adapter", label: "Cron Adapter" },
-              ]
+                  { value: "http_adapter", label: "HTTP Adapter" },
+                  { value: "schedular_adapter", label: "Cron Adapter" },
+                ]
               : [
-                { value: "query", label: "Query" },
-                { value: "insert", label: "Insert" },
-                { value: "update", label: "Update" },
-                { value: "delete", label: "Delete" },
-                { value: "join", label: "Join" },
-                { value: "filter", label: "Filter" },
-                { value: "map", label: "Map" },
-                { value: "condition", label: "Condition" },
-                { value: "http", label: "HTTP" },
-              ]
+                  { value: "query", label: "Query" },
+                  { value: "insert", label: "Insert" },
+                  { value: "update", label: "Update" },
+                  { value: "delete", label: "Delete" },
+                  { value: "join", label: "Join" },
+                  { value: "filter", label: "Filter" },
+                  { value: "map", label: "Map" },
+                  { value: "condition", label: "Condition" },
+                  { value: "http", label: "HTTP" },
+                ]
           }
         />
         <Fields.Json control={form.control} name="data.input" label="Input" />
@@ -526,15 +519,20 @@ export function StepForm({
                     label: node.data.name as string,
                     value: node.id,
                   }))}
-                value={(form.watch("dependencies") as (string | number)[]) || []}
+                value={
+                  (form.watch("dependencies") as (string | number)[]) || []
+                }
                 placeholder="Select next steps"
                 onChange={(selectedValues) => {
-                  const prev = (form.getValues("dependencies") || []) as string[];
-                  const nextSelected = (selectedValues as (string | number)[]).map(
-                    (v) => v.toString(),
-                  );
+                  const prev = (form.getValues("dependencies") ||
+                    []) as string[];
+                  const nextSelected = (
+                    selectedValues as (string | number)[]
+                  ).map((v) => v.toString());
                   const added = nextSelected.filter((id) => !prev.includes(id));
-                  const removed = prev.filter((id) => !nextSelected.includes(id));
+                  const removed = prev.filter(
+                    (id) => !nextSelected.includes(id),
+                  );
 
                   // Handle additions with cycle check
                   const actuallyAdded: string[] = [];
@@ -581,7 +579,11 @@ export function StepForm({
                       !node.data.data?.type.includes("adapter") &&
                       !step.data.dependencies?.includes(node.id) &&
                       !(
-                        (step.data.data as unknown as ConditionParams).else || []
+                        (
+                          step.data.data as unknown as z.infer<
+                            typeof ConditionParamsSchema
+                          >
+                        ).meta.else || []
                       )?.includes(node.id),
                   )
                   .map((node) => ({
@@ -592,11 +594,15 @@ export function StepForm({
                 placeholder="Select dependencies"
                 onChange={(selectedValues) => {
                   const prevSources = incomingEdges.map((e) => e.source);
-                  const nextSources = (selectedValues as (string | number)[]).map(
-                    (v) => v.toString(),
+                  const nextSources = (
+                    selectedValues as (string | number)[]
+                  ).map((v) => v.toString());
+                  const added = nextSources.filter(
+                    (id) => !prevSources.includes(id),
                   );
-                  const added = nextSources.filter((id) => !prevSources.includes(id));
-                  const removed = prevSources.filter((id) => !nextSources.includes(id));
+                  const removed = prevSources.filter(
+                    (id) => !nextSources.includes(id),
+                  );
 
                   for (const sourceId of added) {
                     if (!wouldCreateCycle(sourceId, step.id)) {
