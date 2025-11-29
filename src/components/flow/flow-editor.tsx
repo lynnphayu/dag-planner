@@ -16,7 +16,7 @@ import "@xyflow/react/dist/style.css";
 import { ArrowLeft, LayoutGrid, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { type MouseEvent, useCallback, useMemo, useState } from "react";
+import { type MouseEvent, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -29,9 +29,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GRID_SIZE } from "@/config/node";
 import { useAdapters } from "@/hooks/dag";
-
-import StepNode from "../nodes/step-node";
 import AdapterNode from "../nodes/adapter-node";
+import StepNode from "../nodes/step-node";
 
 // Create node types with props
 const createNodeTypes = (
@@ -164,7 +163,7 @@ export function FlowComponent() {
                       query: {},
                       headers: {},
                       body: {},
-                      authType: "none"
+                      authType: "none",
                     },
                   },
                   name: "New Adapter",

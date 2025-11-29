@@ -7,10 +7,10 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormItem, FormLabel } from "@/components/ui/form";
-import { MultiSelect } from "@/components/ui/multiselect";
+import { Form } from "@/components/ui/form";
 import type { Adapter, CronAdapter, DAGModel, HTTPAdapter } from "@/hooks/dag";
 import { useDAGMutations } from "@/hooks/dag";
+import { wouldCreateCycleOnAdd } from "@/lib/graph";
 import type { NodeData } from "@/store/flow-store";
 import {
   ConditionForm,
@@ -186,6 +186,10 @@ export const ConditionParamsSchema = z.object({
   input: CustomJSONSchema.optional(),
   meta: z.object({
     if: ConditionSchema,
+    then: z
+      .union([z.string(), z.array(z.string())])
+      .transform((val) => (typeof val === "string" ? [val] : val))
+      .optional(),
     else: z
       .union([z.string(), z.array(z.string())])
       .transform((val) => (typeof val === "string" ? [val] : val))
@@ -258,7 +262,6 @@ export function StepForm({
   nodes,
   edges,
   updateNode,
-  wouldCreateCycle,
 }: {
   getDag: () => DAGModel | null;
   step: Node<NodeData>;
@@ -269,56 +272,6 @@ export function StepForm({
   updateNode: (nodeId: string, data: NodeData) => void;
   wouldCreateCycle: (sourceId: string, targetId: string) => boolean;
 }) {
-  // const defaultValues = ((values: NodeData) => {
-  //   const data = values satisfies StepFormOutput;
-  //   const defaults: Record<string, unknown> = data;
-  //   switch (data.data.type) {
-  //     case "query":
-  //     case "insert":
-  //     case "update":
-  //     case "delete":
-  //       defaults.where = JSON.stringify(data.data.meta.where || {}, null, 2);
-  //       break;
-  //     case "join":
-  //       defaults.on = JSON.stringify(data.data.meta.on || {}, null, 2);
-  //       break;
-  //     case "filter":
-  //       defaults.filter = JSON.stringify(data.data.meta.filter || {}, null, 2);
-  //       break;
-  //     case "map":
-  //       defaults.function = JSON.stringify(
-  //         data.data.meta.function || {},
-  //         null,
-  //         2,
-  //       );
-  //       break;
-  //     case "condition":
-  //       defaults.if = JSON.stringify(data.data.meta.if || {}, null, 2);
-  //       defaults.else = JSON.stringify(data.data.meta.else || {}, null, 2);
-  //       break;
-  //     case "http":
-  //       defaults.headers = JSON.stringify(
-  //         data.data.meta.headers || {},
-  //         null,
-  //         2,
-  //       );
-  //       defaults.body = JSON.stringify(data.data.meta.body || {}, null, 2);
-  //       defaults.query = JSON.stringify(data.data.meta.query || {}, null, 2);
-  //       break;
-  //     case "http_adapter":
-  //       defaults.headers = JSON.stringify(
-  //         data.data.meta.headers || {},
-  //         null,
-  //         2,
-  //       );
-  //       defaults.body = JSON.stringify(data.data.meta.body || {}, null, 2);
-  //       defaults.query = JSON.stringify(data.data.meta.query || {}, null, 2);
-  //       break;
-  //     default:
-  //   }
-  //   defaults.input = JSON.stringify(data.data.input || {}, null, 2);
-  //   return defaults;
-  // })(step.data) as z.input<typeof stepSchema>;
   const form = useForm<StepFormInput, unknown, StepFormOutput>({
     resolver: zodResolver(stepSchema) as unknown as Resolver<
       StepFormInput,
@@ -329,63 +282,45 @@ export function StepForm({
   });
   const { t } = useTranslation();
 
-  const outgoingEdges = edges.filter((e) => e.source === step.id);
-  const incomingEdges = edges.filter((e) => e.target === step.id);
-
-  const handleEdgeAdd = (source: string, target: string) => {
-    addEdge({
-      id: `edge-${source}-${target}`,
-      source,
-      target,
-    });
-  };
-
-  const handleEdgeRemove = (edgeId: string) => {
-    if (
-      step.data.data?.type === "http_adapter" ||
-      step.data.data?.type === "schedular_adapter"
-    ) {
-      return;
-    } // Adapters don't have edges
-
-    updateNode(step.id, {
-      ...step.data,
-      dependencies:
-        form.getValues("dependencies")?.filter((id: string) => id !== edgeId) ||
-        [],
-    });
-    form.setValue(
-      "dependencies",
-      form.getValues("dependencies")?.filter((id: string) => id !== edgeId) ||
-        [],
-    );
-    removeEdge(edgeId);
-  };
-
   const { createDAG, updateDAG, updateAdapter } = useDAGMutations();
 
   async function onSubmit(values: z.output<typeof stepSchema>) {
     console.log("Step form submitted with values:", values);
     try {
-      // Handle manual transformation for fields that allow string input
       const data = { ...values };
-      if (data.data?.type === "query") {
-        data.data.meta.select =
-          data.data.meta.select?.map((s) => s.trim()).filter(Boolean) || [];
-      }
-      if (data.data?.type === "condition" && data.data.meta.else) {
-        data.data.meta.else = data.data.meta.else
-          .map((s) => s.trim())
-          .filter(Boolean);
-      }
 
-      updateNode(step.id, data);
+      const toUpdate = [data];
+      nodes.forEach((node) => {
+        if (node.id !== step.id) {
+          if (
+            values.dependents?.includes(node.id) &&
+            !node.data.dependencies?.includes(step.id)
+          ) {
+            toUpdate.push({
+              ...node.data,
+              dependencies: [...(node.data.dependencies || []), step.id],
+            });
+          } else if (
+            !values.dependents?.includes(node.id) &&
+            node.data.dependencies?.includes(step.id)
+          ) {
+            toUpdate.push({
+              ...node.data,
+              dependencies: node.data.dependencies.filter(
+                (id) => id !== step.id,
+              ),
+            });
+          }
+        }
+      });
+      await Promise.all(toUpdate.map((data) => updateNode(data.id, data)));
       const dag = getDag();
       console.log("Current DAG:", dag);
       if (!dag) {
         console.error("No DAG found");
         return;
       }
+
       const isAdapterNode =
         data.data?.type === "http_adapter" ||
         data.data?.type === "schedular_adapter";
@@ -505,122 +440,48 @@ export function StepForm({
           <CronAdapterForm control={form.control} />
         )}
         {!form.watch("data.type").includes("adapter") && (
-          <FormItem>
-            <FormLabel>Then (Next Steps)</FormLabel>
-            <FormControl>
-              <MultiSelect
-                options={nodes
-                  .filter(
-                    (node) =>
-                      node.id !== step.id &&
-                      !node.data.data?.type.includes("adapter"),
-                  )
-                  .map((node) => ({
-                    label: node.data.name as string,
-                    value: node.id,
-                  }))}
-                value={
-                  (form.watch("dependencies") as (string | number)[]) || []
-                }
-                placeholder="Select next steps"
-                onChange={(selectedValues) => {
-                  const prev = (form.getValues("dependencies") ||
-                    []) as string[];
-                  const nextSelected = (
-                    selectedValues as (string | number)[]
-                  ).map((v) => v.toString());
-                  const added = nextSelected.filter((id) => !prev.includes(id));
-                  const removed = prev.filter(
-                    (id) => !nextSelected.includes(id),
-                  );
-
-                  // Handle additions with cycle check
-                  const actuallyAdded: string[] = [];
-                  for (const targetId of added) {
-                    if (!wouldCreateCycle(step.id, targetId)) {
-                      handleEdgeAdd(step.id, targetId);
-                      actuallyAdded.push(targetId);
-                    } else {
-                      toast.error(t("message.cycle_detected.title"), {
-                        description: t("message.cycle_detected.description"),
-                      });
-                    }
-                  }
-
-                  // Handle removals
-                  for (const targetId of removed) {
-                    removeEdge(`edge-${step.id}-${targetId}`);
-                  }
-
-                  const finalDeps = [
-                    ...prev.filter((id) => !removed.includes(id)),
-                    ...actuallyAdded,
-                  ];
-
-                  form.setValue("dependencies", finalDeps);
-                  updateNode(step.id, {
-                    ...step.data,
-                    dependencies: finalDeps,
-                  });
-                }}
-              />
-            </FormControl>
-          </FormItem>
+          <Fields.Multiselect
+            label="Next Steps"
+            control={form.control}
+            name="dependents"
+            options={nodes
+              .filter(
+                (node) =>
+                  node.id !== step.id &&
+                  !node.data.data?.type.includes("adapter") &&
+                  !wouldCreateCycleOnAdd(edges, step.id, node.id),
+              )
+              .map((node) => ({
+                label: node.data.name as string,
+                value: node.id,
+              }))}
+          />
         )}
         {!form.watch("data.type").includes("adapter") && (
-          <FormItem>
-            <FormLabel>Depends On</FormLabel>
-            <FormControl>
-              <MultiSelect
-                options={nodes
-                  .filter(
-                    (node) =>
-                      node.id !== step.id &&
-                      !node.data.data?.type.includes("adapter") &&
-                      !step.data.dependencies?.includes(node.id) &&
-                      !(
-                        (
-                          step.data.data as unknown as z.infer<
-                            typeof ConditionParamsSchema
-                          >
-                        ).meta.else || []
-                      )?.includes(node.id),
-                  )
-                  .map((node) => ({
-                    label: node.data.name as string,
-                    value: node.id,
-                  }))}
-                value={incomingEdges.map((e) => e.source)}
-                placeholder="Select dependencies"
-                onChange={(selectedValues) => {
-                  const prevSources = incomingEdges.map((e) => e.source);
-                  const nextSources = (
-                    selectedValues as (string | number)[]
-                  ).map((v) => v.toString());
-                  const added = nextSources.filter(
-                    (id) => !prevSources.includes(id),
-                  );
-                  const removed = prevSources.filter(
-                    (id) => !nextSources.includes(id),
-                  );
-
-                  for (const sourceId of added) {
-                    if (!wouldCreateCycle(sourceId, step.id)) {
-                      handleEdgeAdd(sourceId, step.id);
-                    } else {
-                      toast.error("Invalid Connection", {
-                        description:
-                          "This connection would create a cycle in the workflow. DAGs must not contain cycles.",
-                      });
-                    }
-                  }
-                  for (const sourceId of removed) {
-                    removeEdge(`edge-${sourceId}-${step.id}`);
-                  }
-                }}
-              />
-            </FormControl>
-          </FormItem>
+          <Fields.Multiselect
+            label="Depends On"
+            control={form.control}
+            name="dependencies"
+            options={nodes
+              .filter(
+                (node) =>
+                  node.id !== step.id &&
+                  !node.data.data?.type.includes("adapter") &&
+                  !wouldCreateCycleOnAdd(edges, node.id, step.id) &&
+                  // !step.data.dependencies?.includes(node.id) &&
+                  !(
+                    (
+                      step.data.data as unknown as z.infer<
+                        typeof ConditionParamsSchema
+                      >
+                    ).meta.else || []
+                  )?.includes(node.id),
+              )
+              .map((node) => ({
+                label: node.data.name as string,
+                value: node.id,
+              }))}
+          />
         )}
 
         <Button

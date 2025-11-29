@@ -1,6 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { z } from "zod";
-import type { ConditionParamsSchema, stepSchema } from "@/components/forms/step-form";
+import type { stepSchema } from "@/components/forms/step-form";
 import { GRID_SIZE, NODE_PREF } from "@/config/node";
 import type { Adapter, DAGModel, Step } from "@/hooks/dag";
 
@@ -116,6 +116,9 @@ export const buildGraphFromDag = <GRAPH extends DAGModel>(
     visited.add(stepId);
 
     const step = dag.nodes[stepId];
+    step.dependents = Object.values(dag.nodes).filter((s) =>
+      s.dependencies?.includes(step.id),
+    ).map((s) => s.id);
     if (!step) return;
 
     nodes.push({
@@ -130,37 +133,35 @@ export const buildGraphFromDag = <GRAPH extends DAGModel>(
       style: NODE_PREF.style,
     });
 
-    if (step.dependents)
-      step.dependents.forEach((targetId: string, index: number) => {
+    const dependents = Object.values(dag.nodes).filter(
+      (s) => s.dependencies?.includes(step.id),
+    );
+
+    if (dependents.length > 0) {
+      dependents.forEach((dependent: Step, index: number) => {
+        const id = edgeId(step.id, dependent.id);
+        if (!edgeSet.has(id)) {
+          edgeSet.add(id);
+          edges.push(createEdge(step.id, dependent.id));
+        }
+        positionNode(dependent.id, column + 1, row + index);
+      });
+    }
+
+    if (step.data.type === "condition" && step.data.meta.else) {
+      step.data.meta.else?.forEach((targetId: string, index: number) => {
         const id = edgeId(step.id, targetId);
         if (!edgeSet.has(id)) {
           edgeSet.add(id);
           edges.push(createEdge(step.id, targetId));
         }
-        positionNode(targetId, column + 1, row + index);
+        positionNode(targetId, column + 1, row + index + 1);
       });
-
-    if (step.data.type === "condition" && step.data.meta.else) {
-      (step.data.meta.else?.forEach(
-        (targetId: string, index: number) => {
-          const id = edgeId(step.id, targetId);
-          if (!edgeSet.has(id)) {
-            edgeSet.add(id);
-            edges.push(createEdge(step.id, targetId));
-          }
-          positionNode(targetId, column + 1, row + index + 1);
-        },
-      ));
     }
   };
 
   const rootNodes = Object.values(dag.nodes).filter(
-    (step) =>
-      !Object.values(dag.nodes).some(
-        (s) =>
-          s.dependents?.includes(step.id) ||
-          (s.data.meta as z.infer<typeof ConditionParamsSchema>['meta']).else?.includes(step.id),
-      ),
+    (s) => !s.dependencies || !s.dependencies.length,
   );
   rootNodes.forEach((root, index) => {
     positionNode(root.id, 1, index);
@@ -195,12 +196,11 @@ export const reconstructNodes = (
   const nodesRecord: Record<string, Step> = {};
   nodes.forEach((node) => {
     if (node.type !== "StepNode") return;
-    const { id, name, dependencies, dependents, data } = node.data;
+    const { id, name, dependencies, data } = node.data;
     nodesRecord[node.id] = {
       id,
       name,
       dependencies,
-      dependents,
       data: data as Step["data"],
     };
   });
