@@ -128,9 +128,10 @@ export function FlowComponent() {
       defaultEdgeOptions={{
         style: {
           strokeWidth: 2,
-          stroke: "var(--border)",
+          stroke: "var(--foreground)",
         },
         animated: true,
+        // className: "transition-all ease-in-out duration-200 will-change-[d] [&.dragging]:!transition-none",
       }}
     >
       <Panel position="top-left" className="flex gap-2">

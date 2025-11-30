@@ -257,8 +257,6 @@ export type TFormControl = Control<StepFormInput, unknown, StepFormOutput>;
 export function StepForm({
   getDag,
   step,
-  addEdge,
-  removeEdge,
   nodes,
   edges,
   updateNode,
