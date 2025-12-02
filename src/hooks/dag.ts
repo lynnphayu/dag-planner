@@ -54,7 +54,7 @@ export interface HTTPAdapter {
     headers?: Record<string, string>;
     body?: Record<string, unknown>;
     query?: Record<string, unknown>;
-    response?: string;
+    response?: unknown;
     authType: "none" | "basic" | "bearer" | "apiKey";
     auth?: Record<string, unknown>;
   };

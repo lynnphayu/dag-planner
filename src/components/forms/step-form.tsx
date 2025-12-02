@@ -219,7 +219,7 @@ export const HTTPAdapterParamsSchema = z.object({
     headers: CustomJSONSchema.optional(),
     body: CustomJSONSchema.optional(),
     query: CustomJSONSchema.optional(),
-    response: z.string().optional(),
+    response: CustomJSONSchema.optional(),
     authType: AuthType.default("none"),
     auth: CustomJSONSchema.optional(),
   }),
