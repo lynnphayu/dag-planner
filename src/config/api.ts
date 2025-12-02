@@ -12,10 +12,8 @@ export const getAPIConfig = (baseUrl?: string) => {
           LIST: `${BASE_URL}/dags`,
           DETAIL: (id: string) => `${BASE_URL}/dags/${id}`,
           EXECUTE: (id: string) => `${BASE_URL}/dags/${id}/execute`,
-        },
-        ADAPTERS: {
-          LIST: `${BASE_URL}/adapters`,
-          DETAIL: (id: string) => `${BASE_URL}/adapters/${id}`,
+          PUBLISH: (id: string) => `${BASE_URL}/dags/${id}/publish`,
+          VERSIONS: (id: string) => `${BASE_URL}/dags/${id}/versions`,
         },
       },
     }) as const;

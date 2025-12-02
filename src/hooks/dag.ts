@@ -29,9 +29,21 @@ export type Step = z.output<typeof stepSchema>;
 export interface DAGModel {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   nodes: { [key: string]: Step };
   inputSchema: Record<string, unknown>;
+  adapters: Adapter[];
+  version: number;
+  subversion: number;
+  status: string;
+}
+
+export interface DAGVersion {
+  version: number;
+  subversion: number;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface HTTPAdapter {
@@ -62,6 +74,7 @@ export type Adapter = {
   input: Record<string, string>;
   name: string;
   user_id: string;
+  createdAt?: string;
 } & (HTTPAdapter | CronAdapter);
 
 const fetcher = async (url: string) => {
@@ -90,11 +103,9 @@ export const useDAG = (id?: string) =>
 export const useDAGs = () =>
   useSWR<DAGModel[]>(API_CONFIG.ENDPOINTS.DAGS.LIST, fetcher);
 
-export const useAdapters = (graphId?: string) =>
-  useSWR<Adapter[]>(
-    graphId
-      ? `${API_CONFIG.ENDPOINTS.ADAPTERS.LIST}?graphId=${graphId}`
-      : undefined,
+export const useDAGVersions = (id?: string) =>
+  useSWR<DAGVersion[]>(
+    id ? API_CONFIG.ENDPOINTS.DAGS.VERSIONS(id) : undefined,
     fetcher,
   );
 
@@ -127,24 +138,6 @@ export function useDAGMutations() {
         return x.json();
       })
       .catch((e) => toast.error(`Error updating DAG - ${e.message}`));
-
-  const updateAdapter = async (id: string, adapter: Adapter) =>
-    fetch(API_CONFIG.ENDPOINTS.ADAPTERS.DETAIL(id), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(adapter),
-    })
-      .then(async (x) => {
-        mutate(API_CONFIG.ENDPOINTS.ADAPTERS.LIST);
-        mutate(API_CONFIG.ENDPOINTS.ADAPTERS.DETAIL(id));
-        mutate(API_CONFIG.ENDPOINTS.DAGS.DETAIL(adapter.graphId));
-        toast.success("Adapter updated");
-        return x.json();
-      })
-      .catch((e) => {
-        toast.error(`Error updating adapter - ${e.message}`);
-        throw e;
-      });
 
   const executeDAG = async (
     id: string,
@@ -179,10 +172,28 @@ export function useDAGMutations() {
     };
   };
 
+  const publishDAG = async (id: string) => {
+    const response = await fetch(API_CONFIG.ENDPOINTS.DAGS.PUBLISH(id), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const responseData = await response.json();
+    if (!response.ok) {
+      toast.error(
+        `Error publishing DAG - ${response.status} ${response.statusText}`,
+      );
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    toast.success("DAG published");
+    mutate(API_CONFIG.ENDPOINTS.DAGS.LIST);
+    mutate(API_CONFIG.ENDPOINTS.DAGS.DETAIL(id));
+    return responseData;
+  };
+
   return {
     createDAG,
     updateDAG,
-    updateAdapter,
     executeDAG,
+    publishDAG,
   };
 }

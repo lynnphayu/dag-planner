@@ -16,7 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useAdapters, useDAG } from "@/hooks/dag";
+import { useDAG } from "@/hooks/dag";
 import { useFlowStore } from "@/store/flow-store";
 
 export default function FlowPage(props: Record<string, unknown>) {
@@ -26,7 +26,6 @@ export default function FlowPage(props: Record<string, unknown>) {
     isLoading: isDagLoading,
     error: isDagError,
   } = useDAG(dagId as string);
-  const { data: adapters } = useAdapters(dagId as string);
 
   const isLoading = isDagLoading;
   const isError = isDagError;
@@ -47,8 +46,8 @@ export default function FlowPage(props: Record<string, unknown>) {
 
   // Initialize flow when DAG data is loaded
   useEffect(() => {
-    if (dagResponse) setDAG(dagResponse, adapters);
-  }, [dagResponse, adapters, setDAG]);
+    if (dagResponse) setDAG(dagResponse);
+  }, [dagResponse, setDAG]);
 
   if (isLoading) {
     return <div>Loading DAG...</div>;

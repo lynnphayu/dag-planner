@@ -67,6 +67,7 @@ const JoinType = z.enum(["inner", "left", "right"]);
 const BaseStepSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
+  createdAt: z.string().optional(),
   dependencies: z.array(z.string()).optional(),
   dependents: z.array(z.string()).optional(),
 });
@@ -280,7 +281,7 @@ export function StepForm({
   });
   const { t } = useTranslation();
 
-  const { createDAG, updateDAG, updateAdapter } = useDAGMutations();
+  const { createDAG, updateDAG } = useDAGMutations();
 
   async function onSubmit(values: z.output<typeof stepSchema>) {
     console.log("Step form submitted with values:", values);
@@ -324,21 +325,26 @@ export function StepForm({
         data.data?.type === "schedular_adapter";
 
       if (isAdapterNode) {
-        // Update adapter via its dedicated endpoint
-        const adapterPayload: Adapter = {
+        // Update adapter via DAG payload
+        const existing = dag.adapters.find((a) => a.id === data.id);
+        const updatedAdapter: Adapter = {
           _id: data.id,
           graphId: dag.id,
           id: data.id,
-          input: data.data.input || {},
-          // user_id: dag.user_id, TODO: add user_id properly
-          user_id: "",
-          name: data.name || "",
+          input: (data.data as unknown as { input?: Record<string, string> }).input || {},
+          user_id: existing?.user_id || "",
+          name: data.name || existing?.name || "",
+          createdAt: existing?.createdAt,
           ...({
             type: data.data?.type,
-            meta: data.data.meta,
+            meta: (data.data as unknown as HTTPAdapter | CronAdapter).meta,
           } as HTTPAdapter | CronAdapter),
         };
-        await updateAdapter(data.id, adapterPayload);
+        const updatedAdapters = [
+          ...dag.adapters.filter((a) => a.id !== data.id),
+          updatedAdapter,
+        ];
+        await updateDAG(dag.id, { ...dag, adapters: updatedAdapters });
       } else {
         if (dag?.id) {
           console.log("Updating existing DAG:", dag.id);

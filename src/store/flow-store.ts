@@ -13,7 +13,7 @@ import { create } from "zustand";
 import type { stepSchema } from "@/components/forms/step-form";
 import { StepType } from "@/components/forms/step-form";
 import { NODE_PREF } from "@/config/node";
-import type { Adapter, DAGModel } from "@/hooks/dag";
+import type { DAGModel } from "@/hooks/dag";
 import {
   buildGraphFromDag,
   createEdge,
@@ -33,7 +33,7 @@ export type NodeData = z.infer<typeof stepSchema>;
 interface FlowState {
   dag: DAGModel | null;
   getDag: () => DAGModel | null;
-  setDAG: (dag: DAGModel, adapters?: Adapter[]) => void;
+  setDAG: (dag: DAGModel) => void;
   initializeNewDAG: (id: string, inputSchema?: Record<string, unknown>) => void;
   nodes: Node<NodeData>[];
   edges: Edge[];
@@ -83,8 +83,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     return nodes;
   },
 
-  setDAG: (dag: DAGModel, adapters: Adapter[] = []) => {
-    const { nodes, edges } = buildGraphFromDag(dag, adapters);
+  setDAG: (dag: DAGModel) => {
+    const { nodes, edges } = buildGraphFromDag(dag, dag.adapters || []);
     set({ nodes, edges, dag });
   },
 
@@ -95,6 +95,10 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       description: "",
       nodes: {},
       inputSchema,
+      adapters: [],
+      version: 1,
+      subversion: 1,
+      status: "draft",
     };
 
     set({

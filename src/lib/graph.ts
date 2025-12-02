@@ -196,10 +196,11 @@ export const reconstructNodes = (
   const nodesRecord: Record<string, Step> = {};
   nodes.forEach((node) => {
     if (node.type !== "StepNode") return;
-    const { id, name, dependencies, data } = node.data;
+    const { id, name, dependencies, data, createdAt } = node.data;
     nodesRecord[node.id] = {
       id,
       name,
+      createdAt,
       dependencies,
       data: data as Step["data"],
     };

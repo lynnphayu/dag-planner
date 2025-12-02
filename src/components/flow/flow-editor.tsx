@@ -13,13 +13,17 @@ import {
 import { type NodeData, useFlowStore } from "@/store/flow-store";
 
 import "@xyflow/react/dist/style.css";
-import { ArrowLeft, LayoutGrid, Plus } from "lucide-react";
+import { ArrowLeft, History, LayoutGrid, Plus, Rocket } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { type MouseEvent, useCallback, useMemo } from "react";
+import { type MouseEvent, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,9 +32,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GRID_SIZE } from "@/config/node";
-import { useAdapters } from "@/hooks/dag";
+import { useDAGMutations } from "@/hooks/dag";
 import AdapterNode from "../nodes/adapter-node";
 import StepNode from "../nodes/step-node";
+import VersionsDialogContent from "./versions-dialog";
 
 // Create node types with props
 const createNodeTypes = (
@@ -49,6 +54,9 @@ export function FlowComponent() {
   const { theme } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
+  const { publishDAG } = useDAGMutations();
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isVersionsOpen, setIsVersionsOpen] = useState(false);
   const {
     nodes,
     edges,
@@ -66,7 +74,6 @@ export function FlowComponent() {
     openSheet,
     removeNode,
   } = useFlowStore();
-  const { data: adapters } = useAdapters(dag?.id || "");
 
   // Create node types with the required functions
   const nodeTypes = useMemo(
@@ -106,8 +113,23 @@ export function FlowComponent() {
   );
 
   const handleReposition = useCallback(() => {
-    if (dag) setDAG(dag, adapters); // Adapters are already in the nodes, no need to re-fetch
-  }, [dag, setDAG, adapters]);
+    if (dag) setDAG(dag); // Adapters come with the DAG payload
+  }, [dag, setDAG]);
+
+  const handlePublish = useCallback(async () => {
+    if (!dag?.id) {
+      toast.error("No DAG to publish");
+      return;
+    }
+    setIsPublishing(true);
+    try {
+      await publishDAG(dag.id);
+    } catch {
+      // toast handled inside publishDAG
+    } finally {
+      setIsPublishing(false);
+    }
+  }, [dag?.id, publishDAG]);
 
   return (
     <ReactFlow
@@ -178,9 +200,27 @@ export function FlowComponent() {
         <Button onClick={handleReposition}>
           <LayoutGrid className="h-4 w-4" />
         </Button>
+        <Button onClick={handlePublish} disabled={isPublishing || !dag?.id}>
+          <Rocket className="h-4 w-4 mr-2" />
+          {isPublishing ? "Publishing..." : "Publish"}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setIsVersionsOpen(true)}
+          disabled={!dag?.id}
+          title="View DAG Versions"
+        >
+          <History className="h-4 w-4 mr-2" />
+          Versions
+        </Button>
       </Panel>
       <Controls />
       <Background gap={GRID_SIZE} offset={GRID_SIZE} />
+      <Dialog open={isVersionsOpen} onOpenChange={setIsVersionsOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <VersionsDialogContent dagId={dag?.id} />
+        </DialogContent>
+      </Dialog>
     </ReactFlow>
   );
 }
