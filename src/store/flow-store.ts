@@ -37,15 +37,13 @@ interface FlowState {
   initializeNewDAG: (id: string, inputSchema?: Record<string, unknown>) => void;
   nodes: Node<NodeData>[];
   edges: Edge[];
-  isSheetOpen: boolean;
   selectedNodeId: string | null;
   selectedNode: () => Node<NodeData> | null;
+  setSelectedNodeId: (nodeId: string | null) => void;
   setNodes: (nodes: Node<NodeData>[]) => void;
   setEdges: (edges: Edge[]) => void;
   addNode: (data?: Partial<NodeData>) => void;
   updateNode: (nodeId: string, data: NodeData) => void;
-  openSheet: (nodeId: string) => void;
-  closeSheet: () => void;
   detectCollision: (node: Node<NodeData>) => boolean;
   findAvailablePosition: (position: { x: number; y: number }) => {
     x: number;
@@ -66,8 +64,8 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   nodes: [],
   edges: [],
   dag: null,
-  isSheetOpen: false,
   selectedNodeId: null,
+  setSelectedNodeId: (nodeId: string | null) => set({ selectedNodeId: nodeId as string }),
   selectedNode: () => {
     const { nodes, selectedNodeId } = get();
     return nodes.find((n) => n.id === selectedNodeId) || null;
@@ -105,7 +103,6 @@ export const useFlowStore = create<FlowState>((set, get) => ({
       dag: newDAG,
       nodes: [],
       edges: [],
-      isSheetOpen: false,
       selectedNodeId: null,
     });
   },
@@ -210,13 +207,6 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     );
     set({ nodes: newNodes, edges: newEdges });
   },
-
-  openSheet: (nodeId) =>
-    set({
-      isSheetOpen: true,
-      selectedNodeId: nodeId,
-    }),
-  closeSheet: () => set({ isSheetOpen: false, selectedNodeId: null }),
 
   getDag: () => {
     const { nodes, dag } = get();

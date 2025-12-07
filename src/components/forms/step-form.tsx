@@ -5,13 +5,14 @@ import { useForm } from "react-hook-form";
 
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { isNull } from "util";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import type { Adapter, CronAdapter, DAGModel, HTTPAdapter } from "@/hooks/dag";
 import { useDAGMutations } from "@/hooks/dag";
 import { wouldCreateCycleOnAdd } from "@/lib/graph";
-import type { NodeData } from "@/store/flow-store";
+import { type NodeData, useFlowStore } from "@/store/flow-store";
 import {
   ConditionForm,
   CronAdapterForm,
@@ -255,36 +256,25 @@ export type StepFormInput = z.input<typeof stepSchema>;
 export type StepFormOutput = z.output<typeof stepSchema>;
 export type TFormControl = Control<StepFormInput, unknown, StepFormOutput>;
 
-export function StepForm({
-  getDag,
-  step,
-  nodes,
-  edges,
-  updateNode,
-}: {
-  getDag: () => DAGModel | null;
-  step: Node<NodeData>;
-  addEdge: (edge: Edge) => void;
-  removeEdge: (edgeId: string) => void;
-  nodes: Node<NodeData>[];
-  edges: Edge[];
-  updateNode: (nodeId: string, data: NodeData) => void;
-  wouldCreateCycle: (sourceId: string, targetId: string) => boolean;
-}) {
+export function StepForm() {
+  const { getDag, selectedNode, nodes, edges, updateNode } = useFlowStore();
+  const step = selectedNode();
+
   const form = useForm<StepFormInput, unknown, StepFormOutput>({
     resolver: zodResolver(stepSchema) as unknown as Resolver<
       StepFormInput,
       unknown,
       StepFormOutput
     >,
-    defaultValues: step.data,
+    defaultValues: step?.data,
   });
   const { t } = useTranslation();
-
   const { createDAG, updateDAG } = useDAGMutations();
 
+  if (!step) return null;
+
   async function onSubmit(values: z.output<typeof stepSchema>) {
-    console.log("Step form submitted with values:", values);
+    if (!step) return;
     try {
       const data = { ...values };
 
@@ -331,7 +321,9 @@ export function StepForm({
           _id: data.id,
           graphId: dag.id,
           id: data.id,
-          input: (data.data as unknown as { input?: Record<string, string> }).input || {},
+          input:
+            (data.data as unknown as { input?: Record<string, string> })
+              .input || {},
           user_id: existing?.user_id || "",
           name: data.name || existing?.name || "",
           createdAt: existing?.createdAt,

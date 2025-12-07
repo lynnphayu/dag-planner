@@ -1,21 +1,20 @@
-"use client";
-
+import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { Badge } from "@/components/ui/badge";
-import {
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useDAGVersions } from "@/hooks/dag";
+import { DialogHeader } from "@/components/ui/dialog";
+import type { DAGVersion } from "@/hooks/dag";
 
 interface VersionsDialogProps {
-  dagId?: string;
+  versions: DAGVersion[];
 }
 
-function VersionsDialogContent({ dagId }: VersionsDialogProps) {
-  const { data: versions, isLoading: isVersionsLoading } =
-    useDAGVersions(dagId);
-
+export function VersionsDialogContent({ versions }: VersionsDialogProps) {
+  if (!versions || versions.length === 0) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        No versions found.
+      </div>
+    );
+  }
   return (
     <>
       <DialogHeader>
@@ -25,9 +24,6 @@ function VersionsDialogContent({ dagId }: VersionsDialogProps) {
         </DialogDescription>
       </DialogHeader>
       <div className="max-h-[50vh] overflow-auto space-y-2">
-        {isVersionsLoading ? (
-          <div className="text-sm text-muted-foreground">Loading...</div>
-        ) : versions && versions.length > 0 ? (
           <ul className="space-y-2">
             {versions
               .slice()
@@ -42,7 +38,7 @@ function VersionsDialogContent({ dagId }: VersionsDialogProps) {
                   className="flex items-center justify-between rounded-md border px-3 py-2"
                 >
                   <div className="flex items-center gap-3">
-                    <Badge variant="secondary">
+                    <Badge variant="outline">
                       v{v.version}.{v.subversion}
                     </Badge>
                     <span className="text-sm">
@@ -67,14 +63,7 @@ function VersionsDialogContent({ dagId }: VersionsDialogProps) {
                 </li>
               ))}
           </ul>
-        ) : (
-          <div className="text-sm text-muted-foreground">
-            No versions found.
-          </div>
-        )}
       </div>
     </>
   );
 }
-
-export default VersionsDialogContent;

@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 import { toast } from "sonner";
+import type { SWRConfiguration } from "swr";
 import useSWR, { useSWRConfig } from "swr";
 
 import type { z } from "zod";
@@ -94,10 +95,11 @@ export const useTable = (name?: string) =>
     fetcher,
   );
 
-export const useDAG = (id?: string) =>
+export const useDAG = (id?: string, config?: SWRConfiguration<DAGModel>) =>
   useSWR<DAGModel>(
     id ? API_CONFIG.ENDPOINTS.DAGS.DETAIL(id) : undefined,
     fetcher,
+    config,
   );
 
 export const useDAGs = () =>

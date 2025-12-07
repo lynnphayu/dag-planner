@@ -21,10 +21,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -33,30 +29,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { GRID_SIZE } from "@/config/node";
 import { useDAGMutations } from "@/hooks/dag";
-import AdapterNode from "../nodes/adapter-node";
-import StepNode from "../nodes/step-node";
-import VersionsDialogContent from "./versions-dialog";
+import AdapterNode from "../../../../components/nodes/adapter-node";
+import StepNode from "../../../../components/nodes/step-node";
 
 // Create node types with props
 const createNodeTypes = (
-  openSheet: (id: string) => void,
+  setSelectedNodeId: (nodeId: string) => void,
   removeNode: (id: string) => void,
 ) => ({
   StepNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
-    <StepNode {...props} onEdit={openSheet} removeNode={removeNode} />
+    <StepNode {...props} onEdit={setSelectedNodeId} removeNode={removeNode} />
   ),
   AdapterNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
-    <AdapterNode {...props} onEdit={openSheet} removeNode={removeNode} />
+    <AdapterNode
+      {...props}
+      onEdit={setSelectedNodeId}
+      removeNode={removeNode}
+    />
   ),
 });
 
-export function FlowComponent() {
+interface FlowComponentProps {
+  onOpenVersions?: () => void;
+  canOpenVersions?: boolean;
+}
+
+export function FlowComponent({
+  onOpenVersions,
+  canOpenVersions = true,
+}: FlowComponentProps = {}) {
   const { theme } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
   const { publishDAG } = useDAGMutations();
   const [isPublishing, setIsPublishing] = useState(false);
-  const [isVersionsOpen, setIsVersionsOpen] = useState(false);
   const {
     nodes,
     edges,
@@ -71,14 +77,14 @@ export function FlowComponent() {
     setDAG,
     dag,
     getNodes,
-    openSheet,
+    setSelectedNodeId,
     removeNode,
   } = useFlowStore();
 
   // Create node types with the required functions
   const nodeTypes = useMemo(
-    () => createNodeTypes(openSheet, removeNode),
-    [openSheet, removeNode],
+    () => createNodeTypes(setSelectedNodeId, removeNode),
+    [setSelectedNodeId, removeNode],
   );
 
   const onDragStop: OnNodeDrag<Node<NodeData>> = (
@@ -206,8 +212,8 @@ export function FlowComponent() {
         </Button>
         <Button
           variant="outline"
-          onClick={() => setIsVersionsOpen(true)}
-          disabled={!dag?.id}
+          onClick={() => onOpenVersions?.()}
+          disabled={!dag?.id || !onOpenVersions || !canOpenVersions}
           title="View DAG Versions"
         >
           <History className="h-4 w-4 mr-2" />
@@ -216,11 +222,6 @@ export function FlowComponent() {
       </Panel>
       <Controls />
       <Background gap={GRID_SIZE} offset={GRID_SIZE} />
-      <Dialog open={isVersionsOpen} onOpenChange={setIsVersionsOpen}>
-        <DialogContent className="sm:max-w-xl">
-          <VersionsDialogContent dagId={dag?.id} />
-        </DialogContent>
-      </Dialog>
     </ReactFlow>
   );
 }
