@@ -9,6 +9,7 @@ import "./globals.css";
 
 const inconsolata = Inconsolata({
   variable: "--font-inconsolata",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {

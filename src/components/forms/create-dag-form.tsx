@@ -66,12 +66,15 @@ export function CreateDAGForm({ onSuccess, onCancel }: CreateDAGFormProps) {
       const parsedInputSchema = JSON.parse(values.inputSchema);
 
       // Create the DAG via API
-      const newDAG: DAGModel = {
-        id: crypto.randomUUID(),
+      const newDAG: Omit<DAGModel, "id"> = {
         name: values.name,
         description: values.description || "",
         nodes: {},
         inputSchema: parsedInputSchema,
+        adapters: [],
+        version: 1,
+        subversion: 1,
+        status: "draft",
       };
 
       const result = await createDAG(newDAG);

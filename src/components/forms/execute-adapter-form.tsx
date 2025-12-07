@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Adapter, DAGModel } from "@/hooks/dag";
+import type { Adapter } from "@/hooks/dag";
 import { useDAGMutations } from "@/hooks/dag";
 
 interface ExecuteAdapterFormProps {
@@ -48,7 +48,7 @@ export function ExecuteAdapterForm({
       };
       await executeDAG(adapter.graphId, payload as unknown as Record<string, unknown>);
       onSuccess?.();
-    } catch (e) {
+    } catch (_error) {
       // errors are toasted in executeDAG
     } finally {
       setIsExecuting(false);

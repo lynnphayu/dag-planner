@@ -115,8 +115,7 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     if (hasEdge(get().edges, source, target)) return;
     if (wouldCreateCycleOnAdd(get().edges, source, target)) return;
     const id = edgeId(source, target);
-    const { source: _s, target: _t, id: _i, ...rest } = edge;
-    const newEdge: Edge = { ...rest, id, source, target };
+    const newEdge: Edge = { ...edge, id, source, target };
     get().onEdgesChange([{ type: "add", item: newEdge }]);
     // Keep node dependencies/dependents in sync with edges
     const updatedNodes = syncNodesOnEdgeAdd(get().nodes, source, target);

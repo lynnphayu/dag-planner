@@ -12,7 +12,7 @@ import {
   Trash2,
   Zap,
 } from "lucide-react";
-import { memo, useMemo, useState } from "react";
+import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { NODE_PREF } from "@/config/node";
 import type { NodeData } from "@/store/flow-store";
@@ -59,12 +59,12 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
   };
 
   // Get styled type name
-  const getTypeName = () => {
-    return data.data.type
-      .split("-")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
+  // const getTypeName = () => {
+  //   return data.data.type
+  //     .split("-")
+  //     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+  //     .join(" ");
+  // };
 
   // Get color scheme based on type
   const getColorScheme = () => {
