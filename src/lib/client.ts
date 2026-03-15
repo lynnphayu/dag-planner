@@ -12,11 +12,8 @@ const client = {
       .then((data) => ({
         data: data as DAGModel[],
         error: undefined,
-      }))
-      .catch((err) => ({
-        error: err instanceof Error ? err.message : "Unknown error",
-        data: [],
       })),
+
   fetchDAG: (id: string) =>
     fetch(ENDPOINTS.DAGS.DETAIL(id), {
       cache: "no-store",
@@ -25,10 +22,6 @@ const client = {
       .then((data) => ({
         data: data as DAGModel,
         error: undefined,
-      }))
-      .catch((err) => ({
-        error: err instanceof Error ? err.message : "Unknown error",
-        data: null,
       })),
   fetchDAGVersions: (id: string) =>
     fetch(ENDPOINTS.DAGS.VERSIONS(id), {
@@ -38,10 +31,6 @@ const client = {
       .then((data) => ({
         data: data as DAGVersion[],
         error: undefined,
-      }))
-      .catch((err) => ({
-        error: err instanceof Error ? err.message : "Unknown error",
-        data: [],
       })),
   fetchTables: () =>
     fetch(ENDPOINTS.TABLES.LIST, {
@@ -51,10 +40,6 @@ const client = {
       .then((data) => ({
         data: data as string[],
         error: undefined,
-      }))
-      .catch((err) => ({
-        error: err instanceof Error ? err.message : "Unknown error",
-        data: [],
       })),
   fetchTable: (name: string) =>
     fetch(ENDPOINTS.TABLES.DETAIL(name), {
@@ -64,10 +49,6 @@ const client = {
       .then((data) => ({
         data: data as Record<string, string>,
         error: undefined,
-      }))
-      .catch((err) => ({
-        error: err instanceof Error ? err.message : "Unknown error",
-        data: {},
       })),
 };
 

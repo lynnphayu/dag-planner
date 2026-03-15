@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inconsolata } from "next/font/google";
 import { ThemeProvider } from "next-themes";
+import { GlobalErrorBoundary } from "@/components/global-error-boundary";
 import { I18nProvider } from "@/components/i18n-provider";
 import { ModeToggle } from "@/components/theme-swticher";
 import { Toaster } from "@/components/ui/sonner";
@@ -41,7 +42,9 @@ export default function RootLayout({
             <div className="absolute right-4 top-4 z-10">
               <ModeToggle />
             </div>
-            {children}
+            <GlobalErrorBoundary>
+              {children}
+            </GlobalErrorBoundary>
             <Toaster />
           </ThemeProvider>
         </I18nProvider>
