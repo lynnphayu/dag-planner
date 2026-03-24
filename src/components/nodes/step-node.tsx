@@ -24,8 +24,6 @@ interface StepNodeProps extends Pick<Node<NodeData>, "data" | "id"> {
 const iconSize = "h-4 w-4";
 
 const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
-  // Non-adapter step node
-
   // Get icon based on type
   const getIcon = () => {
     const type = data.data.type;
@@ -57,14 +55,6 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
         return <Zap className={iconSize} />;
     }
   };
-
-  // Get styled type name
-  // const getTypeName = () => {
-  //   return data.data.type
-  //     .split("-")
-  //     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-  //     .join(" ");
-  // };
 
   // Get color scheme based on type
   const getColorScheme = () => {

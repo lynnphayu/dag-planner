@@ -26,7 +26,6 @@ import {
   findAvailablePosition as findAvailablePositionUtil,
   hasEdge,
   type NodeDataBase,
-  reconstructNodes,
   syncNodesOnEdgeAdd,
   syncNodesOnEdgeRemove,
   wouldCreateCycleOnAdd,
@@ -206,10 +205,13 @@ export const createFlowSlice: StateCreator<
   getDag: () => {
     const { nodes, dag } = get();
     if (!dag) throw new Error("DAG is not set");
-    const newNodes = reconstructNodes(nodes);
+    // Collect live data from every canvas node (steps + adapters)
+    const allNodes = nodes
+      .filter((n) => n.type === "StepNode" || n.type === "AdapterNode")
+      .map((n) => n.data);
     return {
       ...dag,
-      nodes: newNodes,
+      nodes: allNodes,
     } as DAGModel;
   },
   setSelectedNode: (nodeId: string | null) => {
@@ -218,14 +220,15 @@ export const createFlowSlice: StateCreator<
     set({ selectedNode: node });
   },
   setDAG: (dag: DAGModel) => {
-    const nodesData = Object.values(dag.nodes);
-    const positionedNodes = buildGraphFromDag(nodesData, "StepNode", [0, 1]);
+    const isAdapterType = (type: string) =>
+      type === "http_adapter" || type === "schedular_adapter";
+
+    const stepNodes = dag.nodes.filter((n) => !isAdapterType(n.data.type));
+    const adapterNodes = dag.nodes.filter((n) => isAdapterType(n.data.type));
+
+    const positionedNodes = buildGraphFromDag(stepNodes, "StepNode", [0, 1]);
     const positionedAdapters = buildGraphFromDag(
-      dag.adapters.map((adapter) => ({
-        id: adapter.id,
-        name: adapter.name,
-        data: adapter,
-      })),
+      adapterNodes,
       "AdapterNode",
       [0, 0],
     );
@@ -241,9 +244,8 @@ export const createFlowSlice: StateCreator<
       id,
       name: id,
       description: "",
-      nodes: {},
+      nodes: [],
       inputSchema,
-      adapters: [],
       version: 1,
       subversion: 1,
       status: "draft",

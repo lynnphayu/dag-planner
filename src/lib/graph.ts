@@ -2,7 +2,6 @@ import type { Edge, Node } from "@xyflow/react";
 import type { z } from "zod";
 import type { stepSchema } from "@/components/forms/step-form";
 import { GRID_SIZE, STEP_NODE_PREF, STEP_NODE_SPACING } from "@/config/node";
-import type { Step } from "@/hooks/dag";
 
 export type NodeDataBase = {
   id: string;
@@ -118,7 +117,7 @@ export const findAvailablePosition = <T extends INode>(
   return pos;
 };
 
-// Build graph from DAG + adapters
+// Build graph from a flat node data array
 export const buildGraphFromDag = <T extends NodeDataBase>(
   nodesData: T[],
   nodeType: "StepNode" | "AdapterNode" | "TableNode",
@@ -177,25 +176,6 @@ export const buildGraphFromDag = <T extends NodeDataBase>(
   });
 
   return { nodes, edges };
-};
-
-// Extract DAG from current nodes
-export const reconstructNodes = (
-  nodes: Node<NodeData>[],
-): Record<string, Step> => {
-  const nodesRecord: Record<string, Step> = {};
-  nodes.forEach((node) => {
-    if (node.type !== "StepNode") return;
-    const { id, name, dependencies, data, createdAt } = node.data;
-    nodesRecord[node.id] = {
-      id,
-      name,
-      createdAt,
-      dependencies,
-      data: data as Step["data"],
-    };
-  });
-  return nodesRecord;
 };
 
 // Keep node relations in sync when edges change

@@ -15,10 +15,14 @@ interface DAGCardProps {
   onClick: (dagId: string) => void;
 }
 
+const ADAPTER_TYPES = new Set(["http_adapter", "schedular_adapter"]);
+
 export function DAGCard({ dag, onClick }: DAGCardProps) {
-  const nodes = Object.values(dag.nodes);
-  const uniqueStepTypes = [...new Set(nodes.map((step) => step.data.type))];
-  const adapterCount = dag.adapters?.length ?? 0;
+  const stepNodes = dag.nodes.filter((n) => !ADAPTER_TYPES.has(n.data.type));
+  const adapterCount = dag.nodes.filter((n) =>
+    ADAPTER_TYPES.has(n.data.type),
+  ).length;
+  const uniqueStepTypes = [...new Set(stepNodes.map((n) => n.data.type))];
 
   return (
     <Card
@@ -60,7 +64,7 @@ export function DAGCard({ dag, onClick }: DAGCardProps) {
         <div className="mb-2 grid grid-cols-1 gap-1.5 text-xs sm:text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Boxes className="h-3.5 w-3.5" />
-            <span className="truncate">{nodes.length} nodes</span>
+            <span className="truncate">{stepNodes.length} nodes</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Plug className="h-3.5 w-3.5" />
@@ -68,7 +72,7 @@ export function DAGCard({ dag, onClick }: DAGCardProps) {
           </div>
         </div>
 
-        {nodes.length > 0 && (
+        {stepNodes.length > 0 && (
           <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap gap-1">
               {uniqueStepTypes.slice(0, 3).map((type) => (

@@ -16,25 +16,13 @@ export interface DAG {
 }
 
 export type Step = z.output<typeof stepSchema>;
-// BaseStep<
-//   ({ type: "query" } & { meta: QueryParams })
-//   | ({ type: "insert" } & { meta: InsertParams })
-//   | ({ type: "update" } & { meta: UpdateParams })
-//   | ({ type: "delete" } & { meta: DeleteParams })
-//   | ({ type: "join" } & { meta: JoinParams })
-//   | ({ type: "filter" } & { meta: FilterParams })
-//   | ({ type: "map" } & { meta: MapParams })
-//   | ({ type: "condition" } & { meta: ConditionParams })
-//   | ({ type: "http" } & { meta: HTTPParams })
-// >;
 
 export interface DAGModel {
   id: string;
   name: string;
   description?: string;
-  nodes: { [key: string]: Step };
+  nodes: Step[];
   inputSchema: Record<string, unknown>;
-  adapters: Adapter[];
   version: number;
   subversion: number;
   status: string;

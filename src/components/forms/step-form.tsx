@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
-import type { Adapter, CronAdapter, HTTPAdapter } from "@/hooks/dag";
 import { useDAGMutations } from "@/hooks/dag";
 import { wouldCreateCycleOnAdd } from "@/lib/graph";
 import { useFlowStore } from "@/store/flow-store";
@@ -302,47 +301,10 @@ export function StepForm() {
       });
       await Promise.all(toUpdate.map((data) => updateNode(data.id, data)));
       const dag = getDag();
-      console.log("Current DAG:", dag);
-      if (!dag) {
-        console.error("No DAG found");
-        return;
-      }
-
-      const isAdapterNode =
-        data.data?.type === "http_adapter" ||
-        data.data?.type === "schedular_adapter";
-
-      if (isAdapterNode) {
-        // Update adapter via DAG payload
-        const existing = dag.adapters.find((a) => a.id === data.id);
-        const updatedAdapter: Adapter = {
-          _id: data.id,
-          graphId: dag.id,
-          id: data.id,
-          input:
-            (data.data as unknown as { input?: Record<string, string> })
-              .input || {},
-          user_id: existing?.user_id || "",
-          name: data.name || existing?.name || "",
-          createdAt: existing?.createdAt,
-          ...({
-            type: data.data?.type,
-            meta: (data.data as unknown as HTTPAdapter | CronAdapter).meta,
-          } as HTTPAdapter | CronAdapter),
-        };
-        const updatedAdapters = [
-          ...dag.adapters.filter((a) => a.id !== data.id),
-          updatedAdapter,
-        ];
-        await updateDAG(dag.id, { ...dag, adapters: updatedAdapters });
+      if (dag.id) {
+        await updateDAG(dag.id, dag);
       } else {
-        if (dag?.id) {
-          console.log("Updating existing DAG:", dag.id);
-          await updateDAG(dag.id, dag);
-        } else {
-          console.log("Creating new DAG");
-          await createDAG(dag);
-        }
+        await createDAG(dag);
       }
       toast.success(t("message.dag_save_success.description"));
     } catch (error) {
@@ -351,24 +313,14 @@ export function StepForm() {
     }
   }
 
-  const onInvalidSubmit = (errors: Record<string, unknown>) => {
-    console.log("Form validation errors:", errors);
+  const onInvalidSubmit = (_errors: Record<string, unknown>) => {
     toast.error("Please fix the form errors before submitting");
   };
-
-  // useEffect(() => {
-  //   console.log("Step data for form:", defaultValues);
-  //   console.log("Step ID:", step.id);
-  //   form.reset(defaultValues);
-  // }, [step.id, form, defaultValues]);
 
   return (
     <Form {...form}>
       <form
-        onSubmit={(e) => {
-          console.log("Form submit event triggered");
-          form.handleSubmit(onSubmit, onInvalidSubmit)(e);
-        }}
+        onSubmit={(e) => form.handleSubmit(onSubmit, onInvalidSubmit)(e)}
         className="space-y-4"
       >
         <Fields.Text control={form.control} name="name" label="Name" />
@@ -462,7 +414,6 @@ export function StepForm() {
                   node.id !== step.id &&
                   !node.data.data?.type.includes("adapter") &&
                   !wouldCreateCycleOnAdd(edges, node.id, step.id) &&
-                  // !step.data.dependencies?.includes(node.id) &&
                   !(
                     (
                       step.data.data as unknown as z.infer<
@@ -478,15 +429,7 @@ export function StepForm() {
           />
         )}
 
-        <Button
-          type="submit"
-          variant="secondary"
-          onClick={() => {
-            console.log("Submit button clicked");
-            console.log("Form state:", form.formState);
-            console.log("Form values:", form.getValues());
-          }}
-        >
+        <Button type="submit" variant="secondary">
           Submit
         </Button>
       </form>

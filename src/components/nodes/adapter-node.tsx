@@ -10,8 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { STEP_NODE_PREF } from "@/config/node";
-import type { Adapter } from "@/hooks/dag";
+import type { Adapter, CronAdapter, HTTPAdapter } from "@/hooks/dag";
 import type { NodeData } from "@/store/flow-store";
+import { useFlowStore } from "@/store/flow-store";
 
 interface AdapterNodeProps extends Pick<Node<NodeData>, "data" | "id"> {
   onEdit: (id: string) => void;
@@ -22,9 +23,23 @@ const iconSize = "h-4 w-4";
 
 const AdapterNode = ({ data, id, onEdit, removeNode }: AdapterNodeProps) => {
   const [isExecuteOpen, setIsExecuteOpen] = useState(false);
-  const adapterData = useMemo(() => {
-    return { ...(data.data as unknown as Adapter), id: data.id } as Adapter;
-  }, [data]);
+  const dagId = useFlowStore((state) => state.dag?.id ?? "");
+
+  const adapterData = useMemo<Adapter>(() => {
+    const adapterSpecific = data.data as HTTPAdapter | CronAdapter;
+    return {
+      _id: data.id,
+      id: data.id,
+      graphId: dagId,
+      name: data.name,
+      createdAt: data.createdAt,
+      user_id: "",
+      // spreads `type` and `meta` from the adapter-specific data
+      ...adapterSpecific,
+      // `data.input` maps to the top-level `adapter.input`
+      input: (data.data as { input?: Record<string, string> }).input ?? {},
+    };
+  }, [data, dagId]);
 
   const getIcon = () => {
     const type = data.data.type;

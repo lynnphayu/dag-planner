@@ -121,7 +121,7 @@ export function FlowComponent({
   );
 
   const handleReposition = useCallback(() => {
-    if (dag) setDAG(dag); // Adapters come with the DAG payload
+    if (dag) setDAG(dag);
   }, [dag, setDAG]);
 
   const handlePublish = useCallback(async () => {

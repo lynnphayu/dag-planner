@@ -69,9 +69,8 @@ export function CreateDAGForm({ onSuccess, onCancel }: CreateDAGFormProps) {
       const newDAG: Omit<DAGModel, "id"> = {
         name: values.name,
         description: values.description || "",
-        nodes: {},
+        nodes: [],
         inputSchema: parsedInputSchema,
-        adapters: [],
         version: 1,
         subversion: 1,
         status: "draft",
