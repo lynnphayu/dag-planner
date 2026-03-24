@@ -1,18 +1,16 @@
 import type { NextRequest } from "next/server";
-import { getAPIConfig } from "@/config/api";
-
-const API_CONFIG = getAPIConfig()();
+import { serverAPIConfig } from "@/config/api";
 
 export async function GET(_request: NextRequest) {
-  const tables = await fetch(API_CONFIG.ENDPOINTS.TABLES.LIST).then(
+  const tables = await fetch(serverAPIConfig.ENDPOINTS.TABLES.LIST).then(
     (res) => res.json() as Promise<{ data: string[] | null }>,
   );
   const tablesWithDetails = await Promise.all(
     (tables.data || []).map(async (table) => {
-      const details = await fetch(API_CONFIG.ENDPOINTS.TABLES.DETAIL(table));
-      const detailsJson = (await details.json()) as Promise<
-        Record<string, string>
-      >;
+      const details = await fetch(
+        serverAPIConfig.ENDPOINTS.TABLES.DETAIL(table),
+      );
+      const detailsJson = (await details.json()) as Record<string, string>;
       const columns = Object.entries(detailsJson).map(([name, type]) => ({
         name,
         type,

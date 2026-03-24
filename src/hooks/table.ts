@@ -1,8 +1,10 @@
 import useSWR from "swr";
-import { getAPIConfig } from "@/config/api";
+import { clientAPIConfig } from "@/config/api";
 
-const API_CONFIG = getAPIConfig("http://localhost:3005/api")();
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export const useTables = () =>
-  useSWR<{ data: string[] }>(API_CONFIG.ENDPOINTS.TABLES.WITH_DETAILS, fetcher);
+  useSWR<{ data: string[] }>(
+    clientAPIConfig.ENDPOINTS.TABLES.WITH_DETAILS,
+    fetcher,
+  );

@@ -1,11 +1,11 @@
-import { getAPIConfig } from "@/config/api";
-const API_CONFIG = getAPIConfig()();
+import { serverAPIConfig } from "@/config/api";
+
 export async function POST(
-  request: Request,
-  { params }: { params: { id: string } },
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = params;
-  return fetch(API_CONFIG.ENDPOINTS.DAGS.PUBLISH(id), {
+  const { id } = await params;
+  return fetch(serverAPIConfig.ENDPOINTS.DAGS.PUBLISH(id), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
   });

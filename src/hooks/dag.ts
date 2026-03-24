@@ -5,7 +5,7 @@ import useSWR, { useSWRConfig } from "swr";
 
 import type { z } from "zod";
 import type { stepSchema } from "@/components/forms/step-form";
-import { getAPIConfig } from "@/config/api";
+import { clientAPIConfig } from "@/config/api";
 import type { NodeData } from "@/store/flow-store";
 import type { Tables } from "@/store/table-store";
 
@@ -67,52 +67,51 @@ export type Adapter = {
   createdAt?: string;
 } & (HTTPAdapter | CronAdapter);
 
-const API_CONFIG = getAPIConfig("http://localhost:3005/api")();
+const { ENDPOINTS } = clientAPIConfig;
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export const useTables = (config?: SWRConfiguration<Tables>) =>
-  useSWR<Tables>(API_CONFIG.ENDPOINTS.TABLES.WITH_DETAILS, fetcher, config);
+  useSWR<Tables>(ENDPOINTS.TABLES.WITH_DETAILS, fetcher, config);
 
 export const useTable = (name: string) =>
   useSWR<{ data: Record<string, string> }>(
-    API_CONFIG.ENDPOINTS.TABLES.DETAIL(name),
+    ENDPOINTS.TABLES.DETAIL(name),
     fetcher,
   );
 
 export const useDAG = (id: string, config?: SWRConfiguration<DAGModel>) =>
-  useSWR<DAGModel>(API_CONFIG.ENDPOINTS.DAGS.DETAIL(id), fetcher, config);
+  useSWR<DAGModel>(ENDPOINTS.DAGS.DETAIL(id), fetcher, config);
 
-export const useDAGs = () =>
-  useSWR<DAGModel[]>(API_CONFIG.ENDPOINTS.DAGS.LIST, fetcher);
+export const useDAGs = () => useSWR<DAGModel[]>(ENDPOINTS.DAGS.LIST, fetcher);
 
 export const useDAGVersions = (id: string) =>
-  useSWR<DAGVersion[]>(API_CONFIG.ENDPOINTS.DAGS.VERSIONS(id), fetcher);
+  useSWR<DAGVersion[]>(ENDPOINTS.DAGS.VERSIONS(id), fetcher);
 
 export function useDAGMutations() {
   const { mutate } = useSWRConfig();
 
   const createDAG = async (dag: Omit<DAGModel, "id">) =>
-    fetch(API_CONFIG.ENDPOINTS.DAGS.LIST, {
+    fetch(ENDPOINTS.DAGS.LIST, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dag),
     })
       .then((x) => {
-        mutate(API_CONFIG.ENDPOINTS.DAGS.LIST);
+        mutate(ENDPOINTS.DAGS.LIST);
         toast.success("DAG created");
         return x.json();
       })
       .catch((e) => toast.error(`Error creating DAG - ${e.message}`));
 
   const updateDAG = async (id: string, dag: Partial<DAGModel>) =>
-    fetch(API_CONFIG.ENDPOINTS.DAGS.DETAIL(id), {
+    fetch(ENDPOINTS.DAGS.DETAIL(id), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dag),
     })
       .then((x) => {
-        mutate(API_CONFIG.ENDPOINTS.DAGS.LIST);
-        mutate(API_CONFIG.ENDPOINTS.DAGS.DETAIL(id));
+        mutate(ENDPOINTS.DAGS.LIST);
+        mutate(ENDPOINTS.DAGS.DETAIL(id));
         toast.success("DAG updated");
         return x.json();
       })
@@ -122,7 +121,7 @@ export function useDAGMutations() {
     id: string,
     inputData?: Record<string, unknown>,
   ) => {
-    const response = await fetch(API_CONFIG.ENDPOINTS.DAGS.EXECUTE(id), {
+    const response = await fetch(ENDPOINTS.DAGS.EXECUTE(id), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(inputData || {}),
@@ -139,7 +138,6 @@ export function useDAGMutations() {
 
     toast.success("DAG execution completed");
 
-    // Return both HTTP response details and data
     return {
       httpResponse: {
         status: response.status,
@@ -152,7 +150,7 @@ export function useDAGMutations() {
   };
 
   const publishDAG = async (id: string) => {
-    const response = await fetch(API_CONFIG.ENDPOINTS.DAGS.PUBLISH(id), {
+    const response = await fetch(ENDPOINTS.DAGS.PUBLISH(id), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
@@ -164,8 +162,8 @@ export function useDAGMutations() {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     toast.success("DAG published");
-    mutate(API_CONFIG.ENDPOINTS.DAGS.LIST);
-    mutate(API_CONFIG.ENDPOINTS.DAGS.DETAIL(id));
+    mutate(ENDPOINTS.DAGS.LIST);
+    mutate(ENDPOINTS.DAGS.DETAIL(id));
     return responseData;
   };
 

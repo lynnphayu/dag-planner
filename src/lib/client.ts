@@ -1,8 +1,8 @@
-import { getAPIConfig } from "@/config/api";
+import { clientAPIConfig } from "@/config/api";
 import type { DAGModel, DAGVersion } from "@/hooks/dag";
 import type { Table } from "@/store/table-store";
 
-const ENDPOINTS = getAPIConfig("http://localhost:3005/api")().ENDPOINTS;
+const { ENDPOINTS } = clientAPIConfig;
 
 const client = {
   fetchDAGs: () =>
