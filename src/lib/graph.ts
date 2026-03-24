@@ -1,8 +1,15 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { z } from "zod";
 import type { stepSchema } from "@/components/forms/step-form";
-import { GRID_SIZE, NODE_PREF } from "@/config/node";
-import type { Adapter, DAGModel, Step } from "@/hooks/dag";
+import { GRID_SIZE, STEP_NODE_PREF, STEP_NODE_SPACING } from "@/config/node";
+
+export type NodeDataBase = {
+  id: string;
+  dependencies?: string[];
+  dependents?: string[];
+  name: string;
+  data: unknown;
+};
 
 export type NodeData = z.infer<typeof stepSchema>;
 export type INode = {
@@ -72,12 +79,13 @@ export const wouldCreateCycleOnAdd = (
 export const detectCollision = <T extends INode>(
   nodes: T[],
   node: T,
+  nodePref: typeof STEP_NODE_PREF = STEP_NODE_PREF,
 ): boolean => {
   return nodes.some((n) => {
     if (n.id === node.id) return false;
     return (
-      Math.abs(n.position.x - node.position.x) < NODE_PREF.style.width &&
-      Math.abs(n.position.y - node.position.y) < NODE_PREF.style.height
+      Math.abs(n.position.x - node.position.x) < nodePref.style.width &&
+      Math.abs(n.position.y - node.position.y) < nodePref.style.height
     );
   });
 };
@@ -85,6 +93,8 @@ export const detectCollision = <T extends INode>(
 export const findAvailablePosition = <T extends INode>(
   nodes: T[],
   position: T["position"],
+  scanDirection: "horizontal" | "vertical" | "diagonal" = "diagonal",
+  nodePref: typeof STEP_NODE_PREF = STEP_NODE_PREF,
 ): T["position"] => {
   const pos = { ...position };
   let i = 0;
@@ -94,19 +104,28 @@ export const findAvailablePosition = <T extends INode>(
       position: pos,
     } as T)
   ) {
-    pos.x = position.x + i * GRID_SIZE;
-    pos.y = position.y + i * (GRID_SIZE * 2);
+    if (scanDirection === "horizontal") {
+      pos.x = position.x + i * GRID_SIZE;
+    } else if (scanDirection === "vertical") {
+      pos.y = position.y + i * (nodePref.style.height + STEP_NODE_SPACING);
+    } else {
+      pos.x = position.x + i * GRID_SIZE;
+      pos.y = position.y + i * (nodePref.style.height + STEP_NODE_SPACING);
+    }
     i++;
   }
   return pos;
 };
 
-// Build graph from DAG + adapters
-export const buildGraphFromDag = <GRAPH extends DAGModel>(
-  dag: GRAPH,
-  adapters: Adapter[] = [],
-): { nodes: Node<NodeData>[]; edges: Edge[] } => {
-  const nodes: Node<NodeData>[] = [];
+// Build graph from a flat node data array
+export const buildGraphFromDag = <T extends NodeDataBase>(
+  nodesData: T[],
+  nodeType: "StepNode" | "AdapterNode" | "TableNode",
+  startPosition: [number, number] = [0, 0], // [row, column]
+  nodePref: typeof STEP_NODE_PREF = STEP_NODE_PREF,
+): { nodes: Node<T>[]; edges: Edge[] } => {
+  const [row, column] = startPosition;
+  const nodes: Node<T>[] = [];
   const edges: Edge[] = [];
   const visited = new Set<string>();
   const edgeSet = new Set<string>();
@@ -115,30 +134,30 @@ export const buildGraphFromDag = <GRAPH extends DAGModel>(
     if (visited.has(stepId)) return;
     visited.add(stepId);
 
-    const step = dag.nodes[stepId];
-    step.dependents = Object.values(dag.nodes).filter((s) =>
-      s.dependencies?.includes(step.id),
-    ).map((s) => s.id);
+    const step = nodesData.find((s) => s.id === stepId);
     if (!step) return;
+    step.dependents = nodesData
+      .filter((s) => s.dependencies?.includes(step.id))
+      .map((s) => s.id);
 
     nodes.push({
       id: step.id,
-      type: "StepNode",
+      type: nodeType,
       position: {
-        x: column * (NODE_PREF.style.width + GRID_SIZE * 2),
-        y: row * (NODE_PREF.style.height + GRID_SIZE * 2),
+        x: column * (nodePref.style.width + STEP_NODE_SPACING),
+        y: row * (nodePref.style.height + STEP_NODE_SPACING),
       },
-      data: step as unknown as NodeData,
-      ...NODE_PREF,
-      style: NODE_PREF.style,
+      data: step as unknown as T,
+      ...nodePref,
+      style: nodePref.style,
     });
 
-    const dependents = Object.values(dag.nodes).filter(
-      (s) => s.dependencies?.includes(step.id),
+    const dependents = nodesData.filter((s) =>
+      s.dependencies?.includes(step.id),
     );
 
     if (dependents.length > 0) {
-      dependents.forEach((dependent: Step, index: number) => {
+      dependents.forEach((dependent: T, index: number) => {
         const id = edgeId(step.id, dependent.id);
         if (!edgeSet.has(id)) {
           edgeSet.add(id);
@@ -147,73 +166,24 @@ export const buildGraphFromDag = <GRAPH extends DAGModel>(
         positionNode(dependent.id, column + 1, row + index);
       });
     }
-
-    if (step.data.type === "condition" && step.data.meta.else) {
-      step.data.meta.else?.forEach((targetId: string, index: number) => {
-        const id = edgeId(step.id, targetId);
-        if (!edgeSet.has(id)) {
-          edgeSet.add(id);
-          edges.push(createEdge(step.id, targetId));
-        }
-        positionNode(targetId, column + 1, row + index + 1);
-      });
-    }
   };
 
-  const rootNodes = Object.values(dag.nodes).filter(
+  const rootNodes = nodesData.filter(
     (s) => !s.dependencies || !s.dependencies.length,
   );
   rootNodes.forEach((root, index) => {
-    positionNode(root.id, 1, index);
-  });
-
-  adapters.forEach((adapter: Adapter, index: number) => {
-    const adapterData: NodeData = {
-      id: adapter.id,
-      data: adapter,
-      name: adapter.name,
-    } as unknown as NodeData;
-    nodes.push({
-      ...NODE_PREF,
-      id: `adapter-${adapter.id}`,
-      type: "AdapterNode",
-      position: {
-        x: 0,
-        y: index * (NODE_PREF.style.height + GRID_SIZE * 2),
-      },
-      data: adapterData,
-      style: NODE_PREF.style,
-    });
+    positionNode(root.id, column, row + index);
   });
 
   return { nodes, edges };
 };
 
-// Extract DAG from current nodes
-export const reconstructNodes = (
-  nodes: Node<NodeData>[],
-): Record<string, Step> => {
-  const nodesRecord: Record<string, Step> = {};
-  nodes.forEach((node) => {
-    if (node.type !== "StepNode") return;
-    const { id, name, dependencies, data, createdAt } = node.data;
-    nodesRecord[node.id] = {
-      id,
-      name,
-      createdAt,
-      dependencies,
-      data: data as Step["data"],
-    };
-  });
-  return nodesRecord;
-};
-
 // Keep node relations in sync when edges change
-export const syncNodesOnEdgeAdd = (
-  nodes: Node<NodeData>[],
+export const syncNodesOnEdgeAdd = <T extends NodeDataBase>(
+  nodes: Node<T>[],
   source: string,
   target: string,
-): Node<NodeData>[] => {
+): Node<T>[] => {
   return nodes.map((n) => {
     if (n.id === source && n.type === "StepNode") {
       const deps = Array.from(
@@ -231,11 +201,11 @@ export const syncNodesOnEdgeAdd = (
   });
 };
 
-export const syncNodesOnEdgeRemove = (
-  nodes: Node<NodeData>[],
+export const syncNodesOnEdgeRemove = <T extends NodeDataBase>(
+  nodes: Node<T>[],
   source: string,
   target: string,
-): Node<NodeData>[] => {
+): Node<T>[] => {
   return nodes.map((n) => {
     if (n.id === source && n.type === "StepNode") {
       const deps = (n.data.dependencies || []).filter((d) => d !== target);

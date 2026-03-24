@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { NODE_PREF } from "@/config/node";
+import { STEP_NODE_PREF } from "@/config/node";
 import type { NodeData } from "@/store/flow-store";
 
 interface StepNodeProps extends Pick<Node<NodeData>, "data" | "id"> {
@@ -24,8 +24,6 @@ interface StepNodeProps extends Pick<Node<NodeData>, "data" | "id"> {
 const iconSize = "h-4 w-4";
 
 const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
-  // Non-adapter step node
-
   // Get icon based on type
   const getIcon = () => {
     const type = data.data.type;
@@ -58,14 +56,6 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
     }
   };
 
-  // Get styled type name
-  // const getTypeName = () => {
-  //   return data.data.type
-  //     .split("-")
-  //     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-  //     .join(" ");
-  // };
-
   // Get color scheme based on type
   const getColorScheme = () => {
     return {
@@ -83,8 +73,8 @@ const StepNode = ({ data, id, onEdit, removeNode }: StepNodeProps) => {
       <Handle type="target" position={Position.Left} />
       <div
         style={{
-          width: NODE_PREF.style.width,
-          height: NODE_PREF.style.height,
+          width: STEP_NODE_PREF.style.width,
+          height: STEP_NODE_PREF.style.height,
         }}
         className={`flex flex-col rounded-lg border-2 ${colors.border} ${colors.bg} shadow-sm hover:shadow-md transition-shadow overflow-hidden`}
       >

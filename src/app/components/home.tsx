@@ -6,7 +6,6 @@ import { DAGCard } from "@/components/dag-card";
 import { Button } from "@/components/ui/button";
 
 import type { DAGModel } from "@/hooks/dag";
-import { CreateDAG } from "./creat-dag";
 
 interface HomeClientProps {
   dags: DAGModel[];
@@ -50,7 +49,6 @@ export function HomeClient({ dags, error }: HomeClientProps) {
             Get started by creating your first DAG. You can build complex
             workflows with multiple steps and dependencies.
           </p>
-          <CreateDAG />
         </div>
       )}
     </>

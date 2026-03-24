@@ -17,30 +17,41 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { type DAGModel, type DAGVersion, useDAG } from "@/hooks/dag";
-import { useFlowStore } from "@/store/flow-store";
+import { type DAGModel, type DAGVersion, useDAG, useTables } from "@/hooks/dag";
+import { useFlowStore, useTableStore } from "@/store/flow-store";
+import type { Tables } from "@/store/table-store";
+
 import { VersionsDialogContent } from "./versions-dialog";
 
 interface FlowEditorProps {
   hydrate: {
     dag: DAGModel;
-    tables: string[];
+    tables: Tables;
     versions: DAGVersion[];
   };
 }
 
 export function FlowEditorComposer({ hydrate }: FlowEditorProps) {
-  const { dag: initialDag, versions } = hydrate;
-  const { selectedNode, selectedNodeId, setSelectedNodeId, setDAG } =
-    useFlowStore();
+  const { dag: initialDag, versions, tables: initialTables } = hydrate;
+  const { selectedNode, setSelectedNode, setDAG } = useFlowStore();
+  const { setTables } = useTableStore();
 
   const { data: dag } = useDAG(initialDag.id, {
     fallbackData: initialDag,
     revalidateOnMount: false,
   });
 
+  const { data: tables } = useTables({
+    fallbackData: initialTables,
+    revalidateOnMount: false,
+  });
+
   const [nodeSheetOpen, setNodeSheetOpen] = useState(false);
   const [isVersionsOpen, setIsVersionsOpen] = useState(false);
+
+  useEffect(() => {
+    setTables(initialTables);
+  }, [initialTables, setTables]);
 
   useEffect(() => {
     setDAG(initialDag);
@@ -51,47 +62,54 @@ export function FlowEditorComposer({ hydrate }: FlowEditorProps) {
   }, [dag, setDAG]);
 
   useEffect(() => {
-    setNodeSheetOpen(!!selectedNodeId);
-  }, [selectedNodeId]);
+    if (tables) setTables(tables);
+  }, [tables, setTables]);
 
-  const step = selectedNode();
+  useEffect(() => {
+    setNodeSheetOpen(!!selectedNode?.id);
+  }, [selectedNode?.id]);
 
   return (
     <Sheet
       modal={false}
       open={nodeSheetOpen}
       onOpenChange={(open) => {
-        if (!open) setSelectedNodeId(null);
+        if (!open) setSelectedNode(null);
         setNodeSheetOpen(open);
       }}
     >
-      <ReactFlowProvider>
-        <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-          <FlowComponent
-            onOpenVersions={() => setIsVersionsOpen(true)}
-            canOpenVersions={Boolean(dag?.id ?? initialDag.id)}
-          />
-        </div>
-        <Dialog open={isVersionsOpen} onOpenChange={setIsVersionsOpen}>
-          <DialogContent className="sm:max-w-xl">
-            <VersionsDialogContent versions={versions ?? []} />
-          </DialogContent>
-        </Dialog>
-      </ReactFlowProvider>
-      <ResizablePanelGroup direction="horizontal">
-        <ResizableHandle withHandle />
+      <ResizablePanelGroup direction="horizontal" className="absolute right-0">
         <ResizablePanel>
-          <SheetContent className="border m-auto mr-6 h-19/20 rounded-sm w-[480px] sm:w-[640px]">
-            <SheetHeader>
-              <SheetTitle>{step?.data.id}</SheetTitle>
-              <SheetDescription>
-                Make changes to your DAG node. All changes will be automatically
-                saved.
-              </SheetDescription>
-              <StepForm key={selectedNodeId} />
-            </SheetHeader>
-          </SheetContent>
+          <ReactFlowProvider>
+            <div className="min-w-[50vw] h-full">
+              <SheetContent
+                className="border m-auto mr-6 h-19/20 rounded-sm w-[480px] sm:w-[640px]"
+                side="left"
+              >
+                <SheetHeader>
+                  <SheetTitle>{selectedNode?.data.id}</SheetTitle>
+                  <SheetDescription>
+                    Make changes to your DAG node. All changes will be
+                    automatically saved.
+                  </SheetDescription>
+                  <StepForm />
+                </SheetHeader>
+              </SheetContent>
+              <FlowComponent
+                onOpenVersions={() => setIsVersionsOpen(true)}
+                canOpenVersions={Boolean(dag?.id ?? initialDag.id)}
+              />
+            </div>
+            <Dialog open={isVersionsOpen} onOpenChange={setIsVersionsOpen}>
+              <DialogContent className="sm:max-w-xl">
+                <VersionsDialogContent versions={versions ?? []} />
+              </DialogContent>
+            </Dialog>
+          </ReactFlowProvider>
         </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel></ResizablePanel>
+        {/*DB-EDITOR*/}
       </ResizablePanelGroup>
     </Sheet>
   );
