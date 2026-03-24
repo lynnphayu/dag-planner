@@ -5,13 +5,9 @@ type FlowPageParams = { params: Promise<{ id: string }> };
 
 export default async function FlowPage({ params }: FlowPageParams) {
   const { id } = await params;
-  const [
-    { data: dag },
-    { data: tables },
-    { data: versions },
-  ] = await Promise.all([
+  const [dag, tables, versions] = await Promise.all([
     client.fetchDAG(id),
-    client.fetchTables(),
+    client.fetchTablesWithDetails(),
     client.fetchDAGVersions(id),
   ]);
 

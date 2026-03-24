@@ -5,8 +5,9 @@ import useSWR, { useSWRConfig } from "swr";
 
 import type { z } from "zod";
 import type { stepSchema } from "@/components/forms/step-form";
-import API_CONFIG from "@/config/api";
+import { getAPIConfig } from "@/config/api";
 import type { NodeData } from "@/store/flow-store";
+import type { Tables } from "@/store/table-store";
 
 export interface DAG {
   id: string;
@@ -78,38 +79,26 @@ export type Adapter = {
   createdAt?: string;
 } & (HTTPAdapter | CronAdapter);
 
-const fetcher = async (url: string) => {
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error("Failed to fetch DAG data");
-  }
-  return res.json();
-};
+const API_CONFIG = getAPIConfig("http://localhost:3005/api")();
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-export const useTables = () =>
-  useSWR<{ data: string[] }>(API_CONFIG.ENDPOINTS.TABLES.LIST, fetcher);
+export const useTables = (config?: SWRConfiguration<Tables>) =>
+  useSWR<Tables>(API_CONFIG.ENDPOINTS.TABLES.WITH_DETAILS, fetcher, config);
 
-export const useTable = (name?: string) =>
+export const useTable = (name: string) =>
   useSWR<{ data: Record<string, string> }>(
-    name ? API_CONFIG.ENDPOINTS.TABLES.DETAIL(name) : undefined,
+    API_CONFIG.ENDPOINTS.TABLES.DETAIL(name),
     fetcher,
   );
 
-export const useDAG = (id?: string, config?: SWRConfiguration<DAGModel>) =>
-  useSWR<DAGModel>(
-    id ? API_CONFIG.ENDPOINTS.DAGS.DETAIL(id) : undefined,
-    fetcher,
-    config,
-  );
+export const useDAG = (id: string, config?: SWRConfiguration<DAGModel>) =>
+  useSWR<DAGModel>(API_CONFIG.ENDPOINTS.DAGS.DETAIL(id), fetcher, config);
 
 export const useDAGs = () =>
   useSWR<DAGModel[]>(API_CONFIG.ENDPOINTS.DAGS.LIST, fetcher);
 
-export const useDAGVersions = (id?: string) =>
-  useSWR<DAGVersion[]>(
-    id ? API_CONFIG.ENDPOINTS.DAGS.VERSIONS(id) : undefined,
-    fetcher,
-  );
+export const useDAGVersions = (id: string) =>
+  useSWR<DAGVersion[]>(API_CONFIG.ENDPOINTS.DAGS.VERSIONS(id), fetcher);
 
 export function useDAGMutations() {
   const { mutate } = useSWRConfig();

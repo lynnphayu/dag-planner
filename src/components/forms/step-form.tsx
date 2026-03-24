@@ -65,7 +65,7 @@ const JoinType = z.enum(["inner", "left", "right"]);
 
 const BaseStepSchema = z.object({
   id: z.string(),
-  name: z.string().optional(),
+  name: z.string(),
   createdAt: z.string().optional(),
   dependencies: z.array(z.string()).optional(),
   dependents: z.array(z.string()).optional(),
@@ -255,8 +255,8 @@ export type StepFormOutput = z.output<typeof stepSchema>;
 export type TFormControl = Control<StepFormInput, unknown, StepFormOutput>;
 
 export function StepForm() {
-  const { getDag, selectedNode, nodes, edges, updateNode } = useFlowStore();
-  const step = selectedNode();
+  const { selectedNode, nodes, edges, updateNode, getDag } = useFlowStore();
+  const step = selectedNode;
 
   const form = useForm<StepFormInput, unknown, StepFormOutput>({
     resolver: zodResolver(stepSchema) as unknown as Resolver<

@@ -3,7 +3,7 @@ import client from "@/lib/client";
 import { CreateDAG } from "./components/creat-dag";
 
 export default async function Home() {
-  const { data, error } = await client.fetchDAGs();
+  const dags = await client.fetchDAGs();
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -17,7 +17,7 @@ export default async function Home() {
 
           <CreateDAG />
         </div>
-        <HomeClient dags={data} error={error} />
+        <HomeClient dags={dags} />
       </div>
     </div>
   );

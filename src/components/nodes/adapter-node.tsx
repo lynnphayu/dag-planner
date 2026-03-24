@@ -1,17 +1,17 @@
 import type { Node } from "@xyflow/react";
 import { Calendar, Globe, PencilLine, Play, Trash2, Zap } from "lucide-react";
 import { memo, useMemo, useState } from "react";
+import { ExecuteAdapterForm } from "@/components/forms/execute-adapter-form";
 import { Button } from "@/components/ui/button";
-import { NODE_PREF } from "@/config/node";
-import type { NodeData } from "@/store/flow-store";
-import type { Adapter } from "@/hooks/dag";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ExecuteAdapterForm } from "@/components/forms/execute-adapter-form";
+import { STEP_NODE_PREF } from "@/config/node";
+import type { Adapter } from "@/hooks/dag";
+import type { NodeData } from "@/store/flow-store";
 
 interface AdapterNodeProps extends Pick<Node<NodeData>, "data" | "id"> {
   onEdit: (id: string) => void;
@@ -49,8 +49,8 @@ const AdapterNode = ({ data, id, onEdit, removeNode }: AdapterNodeProps) => {
   return (
     <div
       style={{
-        width: NODE_PREF.style.width,
-        height: NODE_PREF.style.height,
+        width: STEP_NODE_PREF.style.width,
+        height: STEP_NODE_PREF.style.height,
       }}
       className={`flex flex-col rounded-lg border-2 ${colors.border} ${colors.bg} shadow-sm hover:shadow-md transition-shadow overflow-hidden`}
     >
@@ -109,5 +109,3 @@ const AdapterNode = ({ data, id, onEdit, removeNode }: AdapterNodeProps) => {
 };
 
 export default memo(AdapterNode);
-
-

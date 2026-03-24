@@ -1,10 +1,11 @@
 export const getAPIConfig = (baseUrl?: string) => {
-  const BASE_URL = baseUrl || "http://localhost:8888/v1";
+  const BASE_URL = baseUrl || "http://localhost:3030/v1";
   return () =>
     ({
       BASE_URL,
       ENDPOINTS: {
         TABLES: {
+          WITH_DETAILS: `${BASE_URL}/tables-with-details`, // BFF only
           LIST: `${BASE_URL}/tables`,
           DETAIL: (name: string) => `${BASE_URL}/tables/${name}`,
         },

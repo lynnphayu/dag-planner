@@ -27,25 +27,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { GRID_SIZE } from "@/config/node";
+import { GRID_SIZE, STEP_NODE_PREF } from "@/config/node";
 import { useDAGMutations } from "@/hooks/dag";
+import { detectCollision, findAvailablePosition } from "@/lib/graph";
 import AdapterNode from "../../../../components/nodes/adapter-node";
 import StepNode from "../../../../components/nodes/step-node";
 
 // Create node types with props
 const createNodeTypes = (
-  setSelectedNodeId: (nodeId: string) => void,
+  setSelectedNode: (nodeId: string | null) => void,
   removeNode: (id: string) => void,
 ) => ({
   StepNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
-    <StepNode {...props} onEdit={setSelectedNodeId} removeNode={removeNode} />
+    <StepNode {...props} onEdit={setSelectedNode} removeNode={removeNode} />
   ),
   AdapterNode: (props: Pick<Node<NodeData>, "data" | "id">) => (
-    <AdapterNode
-      {...props}
-      onEdit={setSelectedNodeId}
-      removeNode={removeNode}
-    />
+    <AdapterNode {...props} onEdit={setSelectedNode} removeNode={removeNode} />
   ),
 });
 
@@ -67,24 +64,22 @@ export function FlowComponent({
     nodes,
     edges,
     setNodes,
-    detectCollision,
-    findAvailablePosition,
-    addNode,
+    addStepNode,
+    addAdapterNode,
     onNodesChange,
     onEdgesChange,
     onConnect,
     wouldCreateCycle,
     setDAG,
     dag,
-    getNodes,
-    setSelectedNodeId,
+    setSelectedNode,
     removeNode,
   } = useFlowStore();
 
   // Create node types with the required functions
   const nodeTypes = useMemo(
-    () => createNodeTypes(setSelectedNodeId, removeNode),
-    [setSelectedNodeId, removeNode],
+    () => createNodeTypes(setSelectedNode, removeNode),
+    [setSelectedNode, removeNode],
   );
 
   const onDragStop: OnNodeDrag<Node<NodeData>> = (
@@ -96,9 +91,16 @@ export function FlowComponent({
       y: Math.round(node.position.y / GRID_SIZE) * GRID_SIZE,
     };
 
-    const hasCollision = detectCollision({ ...node, position: newPosition });
+    const hasCollision = detectCollision(
+      nodes,
+      {
+        ...node,
+        position: newPosition,
+      } as Node<NodeData>,
+      STEP_NODE_PREF,
+    );
     const position = hasCollision
-      ? findAvailablePosition(newPosition)
+      ? findAvailablePosition(nodes, newPosition)
       : newPosition;
 
     setNodes(nodes.map((n) => (n.id === node.id ? { ...n, position } : n)));
@@ -140,7 +142,7 @@ export function FlowComponent({
   return (
     <ReactFlow
       colorMode={(theme || "dark") as ColorMode}
-      nodes={getNodes()}
+      nodes={nodes}
       edges={edges}
       onNodeDragStop={onDragStop}
       onNodesChange={onNodesChange}
@@ -177,28 +179,11 @@ export function FlowComponent({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={() => addNode()}>
+            <DropdownMenuItem onClick={() => addStepNode()}>
               Add Step
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() =>
-                addNode({
-                  data: {
-                    type: "http_adapter",
-                    meta: {
-                      method: "get",
-                      path: "",
-                      query: {},
-                      headers: {},
-                      body: {},
-                      authType: "none",
-                    },
-                  },
-                  name: "New Adapter",
-                })
-              }
-            >
+            <DropdownMenuItem onClick={() => addAdapterNode()}>
               Add Adapter
             </DropdownMenuItem>
           </DropdownMenuContent>

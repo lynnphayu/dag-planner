@@ -9,81 +9,231 @@ import type {
 } from "@xyflow/react";
 import { applyEdgeChanges, applyNodeChanges } from "@xyflow/react";
 import type { z } from "zod";
-import { create } from "zustand";
+import { create, type StateCreator } from "zustand";
 import type { stepSchema } from "@/components/forms/step-form";
 import { StepType } from "@/components/forms/step-form";
-import { NODE_PREF } from "@/config/node";
+import {
+  STEP_NODE_PREF,
+  STEP_NODE_SPACING,
+  STEP_NODE_WIDTH,
+  TABLE_NODE_PREF,
+} from "@/config/node";
 import type { DAGModel } from "@/hooks/dag";
 import {
   buildGraphFromDag,
   createEdge,
-  detectCollision as detectCollisionUtil,
   edgeId,
   findAvailablePosition as findAvailablePositionUtil,
   hasEdge,
+  type NodeDataBase,
   reconstructNodes,
   syncNodesOnEdgeAdd,
   syncNodesOnEdgeRemove,
   wouldCreateCycleOnAdd,
 } from "@/lib/graph";
 import { generateName } from "@/lib/utils";
+import type { Table } from "./table-store";
 
 export type NodeData = z.infer<typeof stepSchema>;
 
 interface FlowState {
   dag: DAGModel | null;
-  getDag: () => DAGModel | null;
+  selectedNode: Node<NodeData> | null;
+
+  getDag: () => DAGModel;
   setDAG: (dag: DAGModel) => void;
   initializeNewDAG: (id: string, inputSchema?: Record<string, unknown>) => void;
-  nodes: Node<NodeData>[];
+  setSelectedNode: (nodeId: string | null) => void;
+  addAdapterNode: () => void;
+  addStepNode: () => void;
+}
+
+export type GraphState<T extends NodeDataBase> = {
+  nodes: Node<T>[];
   edges: Edge[];
-  selectedNodeId: string | null;
-  selectedNode: () => Node<NodeData> | null;
-  setSelectedNodeId: (nodeId: string | null) => void;
-  setNodes: (nodes: Node<NodeData>[]) => void;
+
+  setNodes: (nodes: Node<T>[]) => void;
   setEdges: (edges: Edge[]) => void;
-  addNode: (data?: Partial<NodeData>) => void;
-  updateNode: (nodeId: string, data: NodeData) => void;
-  detectCollision: (node: Node<NodeData>) => boolean;
-  findAvailablePosition: (position: { x: number; y: number }) => {
-    x: number;
-    y: number;
-  };
-  onNodesChange: (changes: NodeChange<Node<NodeData>>[]) => void;
+  updateNode: (nodeId: string, data: T) => void;
+  onNodesChange: (changes: NodeChange<Node<T>>[]) => void;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   removeNode: (nodeId: string) => void;
-
   addEdge: (edge: Edge) => void;
   removeEdge: (edgeId: string) => void;
   wouldCreateCycle: (sourceId: string, targetId: string) => boolean;
-  getNodes: () => Node<NodeData>[];
-}
+};
 
-export const useFlowStore = create<FlowState>((set, get) => ({
-  nodes: [],
-  edges: [],
+export const createGraphSlice =
+  <T extends NodeDataBase>(): StateCreator<
+    GraphState<T>,
+    [],
+    [],
+    GraphState<T>
+  > =>
+  (set, get) => ({
+    nodes: [],
+    edges: [],
+    setNodes: (nodes) => set({ nodes }),
+    setEdges: (edges) => set({ edges }),
+    onNodesChange: (changes) =>
+      set(({ nodes }) => ({
+        nodes: applyNodeChanges(changes, nodes),
+      })),
+    onEdgesChange: (changes: EdgeChange[]) => {
+      set(({ edges }) => ({ edges: applyEdgeChanges(changes, edges) }));
+    },
+    addEdge: (edge: Edge) => {
+      const source = edge.source;
+      const target = edge.target;
+      if (!source || !target) return;
+      if (source === target) return;
+      if (hasEdge(get().edges, source, target)) return;
+      if (wouldCreateCycleOnAdd(get().edges, source, target)) return;
+
+      const id = edgeId(source, target);
+      const newEdge: Edge = { ...edge, id, source, target };
+      get().onEdgesChange([{ type: "add", item: newEdge }]);
+      const updatedNodes = syncNodesOnEdgeAdd(get().nodes, source, target);
+      set({ nodes: updatedNodes });
+    },
+
+    updateNode: (nodeId, data) => {
+      set(({ nodes }) => ({
+        nodes: nodes.map((n) => (n.id === nodeId ? { ...n, data } : n)),
+      }));
+    },
+
+    onConnect: (params: Connection) => {
+      const source = params.source ?? "";
+      const target = params.target ?? "";
+      if (!source || !target) return;
+      get().addEdge(createEdge(source, target));
+    },
+
+    removeEdge: (edgeId: string) => {
+      const existing = get().edges.find((e) => e.id === edgeId);
+      if (existing?.source && existing?.target) {
+        // sync node dependency/dependents removal
+        const source = existing.source;
+        const target = existing.target;
+        const updatedNodes = syncNodesOnEdgeRemove(get().nodes, source, target);
+        set({ nodes: updatedNodes });
+      }
+      get().onEdgesChange([{ type: "remove", id: edgeId }]);
+    },
+
+    wouldCreateCycle: (sourceId: string, targetId: string): boolean => {
+      return wouldCreateCycleOnAdd(get().edges, sourceId, targetId);
+    },
+
+    removeNode: (nodeId: string) => {
+      const { nodes, edges } = get();
+      const newNodes = nodes.filter((n) => n.id !== nodeId);
+      const newEdges = edges.filter(
+        (e) => e.source !== nodeId && e.target !== nodeId,
+      );
+      set({ nodes: newNodes, edges: newEdges });
+    },
+  });
+
+export const createFlowSlice: StateCreator<
+  FlowState & GraphState<NodeData>,
+  [],
+  [],
+  FlowState
+> = (set, get) => ({
   dag: null,
-  selectedNodeId: null,
-  setSelectedNodeId: (nodeId: string | null) => set({ selectedNodeId: nodeId as string }),
-  selectedNode: () => {
-    const { nodes, selectedNodeId } = get();
-    return nodes.find((n) => n.id === selectedNodeId) || null;
-  },
-  onNodesChange: (changes: NodeChange<Node<NodeData>>[]) =>
-    set({ nodes: applyNodeChanges<Node<NodeData>>(changes, get().nodes) }),
-  onEdgesChange: (changes: EdgeChange[]) => {
-    set({ edges: applyEdgeChanges(changes, get().edges) });
-  },
+  selectedNode: null,
 
-  getNodes: () => {
+  addAdapterNode: () => {
     const { nodes } = get();
-    return nodes;
+    const pos = findAvailablePositionUtil(nodes, { x: 0, y: 0 }, "vertical");
+    const nodeId = crypto.randomUUID();
+    const generatedName = generateName();
+    const newNode = {
+      id: nodeId,
+      position: pos,
+      type: "AdapterNode",
+      data: {
+        id: nodeId,
+        data: {
+          type: "http_adapter",
+          meta: {
+            method: "get",
+            path: "",
+            query: {},
+            headers: {},
+            body: {},
+            authType: "none",
+          },
+        },
+        name: generatedName,
+      } as NodeData,
+      ...STEP_NODE_PREF,
+    };
+    set({ nodes: [...nodes, newNode] });
+  },
+  addStepNode: () => {
+    const { nodes } = get();
+    const nodeId = crypto.randomUUID();
+    const pos = findAvailablePositionUtil(nodes, {
+      x: STEP_NODE_WIDTH + STEP_NODE_SPACING,
+      y: 0,
+    });
+    const generatedName = generateName();
+    const newNode = {
+      id: nodeId,
+      position: pos,
+      type: "StepNode",
+      data: {
+        id: nodeId,
+        data: {
+          type: StepType.enum.query,
+          meta: {
+            table: "",
+            where: {},
+            select: [],
+          },
+        },
+        name: generatedName,
+      } as NodeData,
+      ...STEP_NODE_PREF,
+    };
+    set({ nodes: [...nodes, newNode] });
   },
 
+  getDag: () => {
+    const { nodes, dag } = get();
+    if (!dag) throw new Error("DAG is not set");
+    const newNodes = reconstructNodes(nodes);
+    return {
+      ...dag,
+      nodes: newNodes,
+    } as DAGModel;
+  },
+  setSelectedNode: (nodeId: string | null) => {
+    if (!nodeId) return set({ selectedNode: null });
+    const node = get().nodes.find((n) => n.id === nodeId);
+    set({ selectedNode: node });
+  },
   setDAG: (dag: DAGModel) => {
-    const { nodes, edges } = buildGraphFromDag(dag, dag.adapters || []);
-    set({ nodes, edges, dag });
+    const nodesData = Object.values(dag.nodes);
+    const positionedNodes = buildGraphFromDag(nodesData, "StepNode", [0, 1]);
+    const positionedAdapters = buildGraphFromDag(
+      dag.adapters.map((adapter) => ({
+        id: adapter.id,
+        name: adapter.name,
+        data: adapter,
+      })),
+      "AdapterNode",
+      [0, 0],
+    );
+    set({
+      nodes: [...positionedNodes.nodes, ...positionedAdapters.nodes],
+      edges: [...positionedNodes.edges, ...positionedAdapters.edges],
+      dag,
+    });
   },
 
   initializeNewDAG: (id: string, inputSchema = {}) => {
@@ -101,120 +251,65 @@ export const useFlowStore = create<FlowState>((set, get) => ({
 
     set({
       dag: newDAG,
-      nodes: [],
-      edges: [],
-      selectedNodeId: null,
+      selectedNode: null,
     });
   },
+});
 
-  addEdge: (edge: Edge) => {
-    const source = edge.source;
-    const target = edge.target;
-    if (!source || !target) return;
-    if (source === target) return;
-    if (hasEdge(get().edges, source, target)) return;
-    if (wouldCreateCycleOnAdd(get().edges, source, target)) return;
-    const id = edgeId(source, target);
-    const newEdge: Edge = { ...edge, id, source, target };
-    get().onEdgesChange([{ type: "add", item: newEdge }]);
-    // Keep node dependencies/dependents in sync with edges
-    const updatedNodes = syncNodesOnEdgeAdd(get().nodes, source, target);
-    set({ nodes: updatedNodes });
-  },
+interface TableState {
+  tables: Table[];
+  setTables: (tables: Table[]) => void;
+}
 
-  updateNode: (nodeId: string, data: NodeData) => {
-    const { nodes, dag } = get();
-    const newNodes = nodes.map((n) => (n.id === nodeId ? { ...n, data } : n));
-    const newSteps = {
-      ...dag?.nodes,
-      [nodeId]: data,
-    };
-    set({
-      nodes: newNodes,
-      dag: { ...dag, nodes: newSteps } as DAGModel,
-    });
-  },
+export interface TableNodeData extends NodeDataBase, Record<string, unknown> {
+  data: Table;
+}
 
-  onConnect: (params: Connection) => {
-    const source = params.source ?? "";
-    const target = params.target ?? "";
-    if (!source || !target) return;
-    // Delegate to addEdge for validation + sync behavior
-    get().addEdge(createEdge(source, target));
-  },
-  setNodes: (nodes) => set({ nodes }),
-  setEdges: (edges) => set({ edges }),
-
-  removeEdge: (edgeId: string) => {
-    const existing = get().edges.find((e) => e.id === edgeId);
-    if (existing?.source && existing?.target) {
-      // sync node dependency/dependents removal
-      const source = existing.source;
-      const target = existing.target;
-      const updatedNodes = syncNodesOnEdgeRemove(get().nodes, source, target);
-      set({ nodes: updatedNodes });
-    }
-    get().onEdgesChange([{ type: "remove", id: edgeId }]);
-  },
-
-  detectCollision: (node) => {
-    const { nodes } = get();
-    return detectCollisionUtil(nodes, node);
-  },
-
-  wouldCreateCycle: (sourceId: string, targetId: string): boolean => {
-    return wouldCreateCycleOnAdd(get().edges, sourceId, targetId);
-  },
-
-  findAvailablePosition: (position) => {
-    return findAvailablePositionUtil(get().nodes, position);
-  },
-
-  addNode: (data) => {
-    const { nodes } = get();
-    const pos = findAvailablePositionUtil(nodes, { x: 0, y: 0 });
-    const nodeId = crypto.randomUUID();
-    const generatedName = generateName();
-    const newNode = {
-      id: nodeId,
-      position: pos,
-      type: "StepNode",
-      data: {
-        id: nodeId,
-        data: {
-          type: StepType.enum.query,
-          meta: {
-            table: "",
-            where: {},
-            select: [],
-          },
-        },
-        ...data,
-        name: (data?.name && data.name.trim().length > 0
-          ? data.name
-          : generatedName) as string,
-      } as NodeData,
-      ...NODE_PREF,
-    };
-    set({ nodes: [...nodes, newNode] });
-  },
-  removeNode: (nodeId: string) => {
-    const { nodes, edges } = get();
-    const newNodes = nodes.filter((n) => n.id !== nodeId);
-    const newEdges = edges.filter(
-      (e) => e.source !== nodeId && e.target !== nodeId,
+export const createTableSlice: StateCreator<
+  TableState & GraphState<TableNodeData>,
+  [],
+  [],
+  TableState
+> = (set) => ({
+  tables: [],
+  setTables: (tables) => {
+    const tablesData = tables.map((table) => ({
+      id: table.name,
+      name: table.name,
+      data: table,
+    }));
+    set({ tables });
+    const { nodes, edges } = buildGraphFromDag(
+      tablesData,
+      "TableNode",
+      [0, 0],
+      TABLE_NODE_PREF,
     );
-    set({ nodes: newNodes, edges: newEdges });
+    // Remove fixed height from table nodes to allow auto-sizing
+    const nodesWithoutHeight = nodes.map((node) => ({
+      ...node,
+      style: {
+        ...node.style,
+        height: undefined,
+      },
+    }));
+    set({
+      nodes: nodesWithoutHeight,
+      edges,
+    });
   },
+});
 
-  getDag: () => {
-    const { nodes, dag } = get();
-    if (!dag) throw new Error("DAG is not set");
+export const useTableStore = create<TableState & GraphState<TableNodeData>>(
+  (...a) => ({
+    ...createTableSlice(...a),
+    ...createGraphSlice<TableNodeData>()(...a),
+  }),
+);
 
-    const newNodes = reconstructNodes(nodes);
-    return {
-      ...dag,
-      nodes: newNodes,
-    } as DAGModel;
-  },
-}));
+export const useFlowStore = create<FlowState & GraphState<NodeData>>(
+  (...a) => ({
+    ...createFlowSlice(...a),
+    ...createGraphSlice<NodeData>()(...a),
+  }),
+);
