@@ -13,7 +13,14 @@ import {
 import { type NodeData, useFlowStore } from "@/store/flow-store";
 
 import "@xyflow/react/dist/style.css";
-import { ArrowLeft, History, LayoutGrid, Plus, Rocket } from "lucide-react";
+import {
+  ArrowLeft,
+  History,
+  LayoutGrid,
+  Plus,
+  Rocket,
+  Save,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { type MouseEvent, useCallback, useMemo, useState } from "react";
@@ -58,8 +65,9 @@ export function FlowComponent({
   const { theme } = useTheme();
   const { t } = useTranslation();
   const router = useRouter();
-  const { publishDAG } = useDAGMutations();
+  const { publishDAG, updateDAG, createDAG } = useDAGMutations();
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const {
     nodes,
     edges,
@@ -72,6 +80,8 @@ export function FlowComponent({
     wouldCreateCycle,
     setDAG,
     dag,
+    getDag,
+    clearDirty,
     setSelectedNode,
     removeNode,
   } = useFlowStore();
@@ -123,6 +133,20 @@ export function FlowComponent({
   const handleReposition = useCallback(() => {
     if (dag) setDAG(dag);
   }, [dag, setDAG]);
+
+  const handleSave = useCallback(async () => {
+    const current = getDag();
+    setIsSaving(true);
+    try {
+      if (current.id) await updateDAG(current.id, current);
+      else await createDAG(current);
+      clearDirty();
+    } catch {
+      // toast handled inside mutations
+    } finally {
+      setIsSaving(false);
+    }
+  }, [getDag, updateDAG, createDAG, clearDirty]);
 
   const handlePublish = useCallback(async () => {
     if (!dag?.id) {
@@ -203,6 +227,12 @@ export function FlowComponent({
         >
           <History className="h-4 w-4 mr-2" />
           Versions
+        </Button>
+      </Panel>
+      <Panel position="top-right">
+        <Button onClick={handleSave} disabled={isSaving || !dag?.id}>
+          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? "Saving..." : "Save"}
         </Button>
       </Panel>
       <Controls />

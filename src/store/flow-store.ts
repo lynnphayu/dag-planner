@@ -38,6 +38,7 @@ export type NodeData = z.infer<typeof stepSchema>;
 interface FlowState {
   dag: DAGModel | null;
   selectedNode: Node<NodeData> | null;
+  dirtyNodeIds: Set<string>;
 
   getDag: () => DAGModel;
   setDAG: (dag: DAGModel) => void;
@@ -45,6 +46,8 @@ interface FlowState {
   setSelectedNode: (nodeId: string | null) => void;
   addAdapterNode: () => void;
   addStepNode: () => void;
+  markDirty: (nodeIds: string[]) => void;
+  clearDirty: () => void;
 }
 
 export type GraphState<T extends NodeDataBase> = {
@@ -144,6 +147,7 @@ export const createFlowSlice: StateCreator<
 > = (set, get) => ({
   dag: null,
   selectedNode: null,
+  dirtyNodeIds: new Set<string>(),
 
   addAdapterNode: () => {
     const { nodes } = get();
@@ -237,6 +241,15 @@ export const createFlowSlice: StateCreator<
       edges: [...positionedNodes.edges, ...positionedAdapters.edges],
       dag,
     });
+  },
+
+  markDirty: (nodeIds: string[]) => {
+    set((state) => ({
+      dirtyNodeIds: new Set([...state.dirtyNodeIds, ...nodeIds]),
+    }));
+  },
+  clearDirty: () => {
+    set({ dirtyNodeIds: new Set() });
   },
 
   initializeNewDAG: (id: string, inputSchema = {}) => {

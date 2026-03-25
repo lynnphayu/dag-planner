@@ -2,12 +2,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { Control, Resolver } from "react-hook-form";
 import { useForm } from "react-hook-form";
 
-import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
-import { useDAGMutations } from "@/hooks/dag";
+
 import { wouldCreateCycleOnAdd } from "@/lib/graph";
 import { useFlowStore } from "@/store/flow-store";
 import {
@@ -254,7 +253,8 @@ export type StepFormOutput = z.output<typeof stepSchema>;
 export type TFormControl = Control<StepFormInput, unknown, StepFormOutput>;
 
 export function StepForm() {
-  const { selectedNode, nodes, edges, updateNode, getDag } = useFlowStore();
+  const { selectedNode, nodes, edges, updateNode, setSelectedNode, markDirty } =
+    useFlowStore();
   const step = selectedNode;
 
   const form = useForm<StepFormInput, unknown, StepFormOutput>({
@@ -265,52 +265,37 @@ export function StepForm() {
     >,
     defaultValues: step?.data,
   });
-  const { t } = useTranslation();
-  const { createDAG, updateDAG } = useDAGMutations();
-
   if (!step) return null;
 
-  async function onSubmit(values: z.output<typeof stepSchema>) {
+  function onSave(values: z.output<typeof stepSchema>) {
     if (!step) return;
-    try {
-      const data = { ...values };
+    const data = { ...values };
 
-      const toUpdate = [data];
-      nodes.forEach((node) => {
-        if (node.id !== step.id) {
-          if (
-            values.dependents?.includes(node.id) &&
-            !node.data.dependencies?.includes(step.id)
-          ) {
-            toUpdate.push({
-              ...node.data,
-              dependencies: [...(node.data.dependencies || []), step.id],
-            });
-          } else if (
-            !values.dependents?.includes(node.id) &&
-            node.data.dependencies?.includes(step.id)
-          ) {
-            toUpdate.push({
-              ...node.data,
-              dependencies: node.data.dependencies.filter(
-                (id) => id !== step.id,
-              ),
-            });
-          }
+    const toUpdate = [data];
+    nodes.forEach((node) => {
+      if (node.id !== step.id) {
+        if (
+          values.dependents?.includes(node.id) &&
+          !node.data.dependencies?.includes(step.id)
+        ) {
+          toUpdate.push({
+            ...node.data,
+            dependencies: [...(node.data.dependencies || []), step.id],
+          });
+        } else if (
+          !values.dependents?.includes(node.id) &&
+          node.data.dependencies?.includes(step.id)
+        ) {
+          toUpdate.push({
+            ...node.data,
+            dependencies: node.data.dependencies.filter((id) => id !== step.id),
+          });
         }
-      });
-      await Promise.all(toUpdate.map((data) => updateNode(data.id, data)));
-      const dag = getDag();
-      if (dag.id) {
-        await updateDAG(dag.id, dag);
-      } else {
-        await createDAG(dag);
       }
-      toast.success(t("message.dag_save_success.description"));
-    } catch (error) {
-      console.error("Error in step form submission:", error);
-      toast.error(t("message.dag_save_failed.description"));
-    }
+    });
+    toUpdate.forEach((d) => updateNode(d.id, d));
+    markDirty(toUpdate.map((d) => d.id));
+    setSelectedNode(null);
   }
 
   const onInvalidSubmit = (_errors: Record<string, unknown>) => {
@@ -320,7 +305,7 @@ export function StepForm() {
   return (
     <Form {...form}>
       <form
-        onSubmit={(e) => form.handleSubmit(onSubmit, onInvalidSubmit)(e)}
+        onSubmit={(e) => form.handleSubmit(onSave, onInvalidSubmit)(e)}
         className="space-y-4"
       >
         <Fields.Text control={form.control} name="name" label="Name" />
@@ -429,9 +414,7 @@ export function StepForm() {
           />
         )}
 
-        <Button type="submit" variant="secondary">
-          Submit
-        </Button>
+        <Button type="submit">OK</Button>
       </form>
     </Form>
   );
