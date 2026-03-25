@@ -92,7 +92,7 @@ export function FlowEditorComposer({ hydrate }: FlowEditorProps) {
                     Make changes to your DAG node. All changes will be
                     automatically saved.
                   </SheetDescription>
-                  <StepForm />
+                  <StepForm key={selectedNode?.id} />
                 </SheetHeader>
               </SheetContent>
               <FlowComponent

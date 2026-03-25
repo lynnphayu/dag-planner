@@ -11,7 +11,10 @@ export function QueryForm({ control }: { control: TFormControl }) {
   const { data: fetchedTables } = useTables();
   const { data: idxTable } = useTable(table);
 
-  const tables = useMemo(() => fetchedTables?.data || [], [fetchedTables]);
+  const tables = useMemo(
+    () => fetchedTables?.map((t) => ({ value: t.name, label: t.name })) || [],
+    [fetchedTables],
+  );
   const columns = useMemo(() => Object.keys(idxTable?.data || {}), [idxTable]);
 
   return (

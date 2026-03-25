@@ -162,6 +162,7 @@ export function useDAGMutations() {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
     toast.success("DAG published");
+    mutate(ENDPOINTS.DAGS.VERSIONS);
     mutate(ENDPOINTS.DAGS.LIST);
     mutate(ENDPOINTS.DAGS.DETAIL(id));
     return responseData;
