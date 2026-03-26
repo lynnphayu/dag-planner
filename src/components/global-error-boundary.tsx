@@ -1,7 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { DefaultErrorFallback, ErrorBoundary } from "@/components/error-boundary";
+import {
+  DefaultErrorFallback,
+  ErrorBoundary,
+} from "@/components/error-boundary";
 
 interface GlobalErrorBoundaryProps {
   children: ReactNode;

@@ -42,9 +42,9 @@ export function buildInnerHTML(
   let html = "";
   let lastIndex = 0;
   VAR_REGEX.lastIndex = 0;
-  let match: RegExpExecArray | null;
+  let match = VAR_REGEX.exec(raw);
 
-  while ((match = VAR_REGEX.exec(raw)) !== null) {
+  while (match !== null) {
     const matchStart = match.index;
     const matchEnd = VAR_REGEX.lastIndex;
     const prevChar = matchStart > 0 ? raw[matchStart - 1] : "";
@@ -63,6 +63,7 @@ export function buildInnerHTML(
     const label = resolveLabel(ref);
     html += `<span contenteditable="false" data-ref="${ref}" data-group="${group}" data-quoted="${isJsonQuoted}" style="${CHIP_STYLE[group]}">${escapeHtml(label)}</span>`;
     lastIndex = isJsonQuoted ? matchEnd + 1 : matchEnd;
+    match = VAR_REGEX.exec(raw);
   }
 
   if (lastIndex < raw.length) {
@@ -86,7 +87,7 @@ export function readRawFromNode(container: Node): string {
       } else if (child.tagName === "BR") {
         raw += "\n";
       } else if (child.tagName === "DIV" || child.tagName === "P") {
-        raw += "\n" + readRawFromNode(child);
+        raw += `\n${readRawFromNode(child)}`;
       } else {
         raw += readRawFromNode(child);
       }

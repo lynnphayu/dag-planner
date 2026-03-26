@@ -9,7 +9,6 @@ import type { Adapter } from "@/hooks/dag";
 import { useDAGMutations } from "@/hooks/dag";
 
 interface ExecuteAdapterFormProps {
-
   adapter: Adapter;
   onSuccess?: () => void;
   onCancel?: () => void;
@@ -46,7 +45,10 @@ export function ExecuteAdapterForm({
         adapterType: adapter.type,
         input: values,
       };
-      await executeDAG(adapter.graphId, payload as unknown as Record<string, unknown>);
+      await executeDAG(
+        adapter.graphId,
+        payload as unknown as Record<string, unknown>,
+      );
       onSuccess?.();
     } catch (_error) {
       // errors are toasted in executeDAG
@@ -78,15 +80,23 @@ export function ExecuteAdapterForm({
       )}
       <div className="flex justify-end gap-3 pt-2">
         {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isExecuting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isExecuting}
+          >
             Cancel
           </Button>
         )}
-        <Button onClick={handleExecute} disabled={isExecuting} className="min-w-[100px]">
+        <Button
+          onClick={handleExecute}
+          disabled={isExecuting}
+          className="min-w-[100px]"
+        >
           {isExecuting ? "Executing..." : "Execute"}
         </Button>
       </div>
     </div>
   );
 }
-

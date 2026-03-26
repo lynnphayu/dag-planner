@@ -1,5 +1,4 @@
 import { Handle, type Node, Position } from "@xyflow/react";
-import { useFlowStore } from "@/store/flow-store";
 import {
   Calendar,
   Database,
@@ -17,6 +16,7 @@ import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { STEP_NODE_PREF } from "@/config/node";
 import type { NodeData } from "@/store/flow-store";
+import { useFlowStore } from "@/store/flow-store";
 
 interface StepNodeProps extends Pick<Node<NodeData>, "data" | "id"> {
   onEdit: (id: string) => void;

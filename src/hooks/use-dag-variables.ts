@@ -24,10 +24,11 @@ export function useDAGVariables() {
     const INPUT_REF_RE = /\$input\.([a-zA-Z0-9_-]+)/g;
     for (const node of nodes) {
       const serialized = JSON.stringify(node.data);
-      let match: RegExpExecArray | null;
+      let match = INPUT_REF_RE.exec(serialized);
       INPUT_REF_RE.lastIndex = 0;
-      while ((match = INPUT_REF_RE.exec(serialized)) !== null) {
+      while (match !== null) {
         refSet.add(match[1]);
+        match = INPUT_REF_RE.exec(serialized);
       }
     }
     return Array.from(refSet).map((key) => ({

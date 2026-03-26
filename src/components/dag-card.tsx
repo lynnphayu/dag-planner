@@ -1,5 +1,4 @@
 import { Boxes, ChevronRight, Plug, Workflow } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -10,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { DAGModel } from "@/hooks/dag";
+import { cn } from "@/lib/utils";
 
 interface DAGCardProps {
   dag: DAGModel;

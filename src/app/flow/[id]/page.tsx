@@ -11,6 +11,5 @@ export default async function FlowPage({ params }: FlowPageParams) {
     client.fetchDAGVersions(id),
   ]);
 
-
   return <FlowEditorComposer hydrate={{ dag, tables, versions }} />;
 }

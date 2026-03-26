@@ -29,13 +29,25 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
         }}
       >
         <div
-          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.75rem" }}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "0.75rem",
+          }}
         >
           <AlertTriangle style={{ width: 48, height: 48, color: "#ef4444" }} />
           <h1 style={{ fontSize: "1.5rem", fontWeight: 600, margin: 0 }}>
             Something went wrong
           </h1>
-          <p style={{ fontSize: "0.875rem", color: "#a1a1aa", maxWidth: 400, margin: 0 }}>
+          <p
+            style={{
+              fontSize: "0.875rem",
+              color: "#a1a1aa",
+              maxWidth: 400,
+              margin: 0,
+            }}
+          >
             {error.message || "An unexpected error occurred."}
           </p>
         </div>
@@ -63,7 +75,9 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
           </button>
           <button
             type="button"
-            onClick={() => { window.location.href = "/"; }}
+            onClick={() => {
+              window.location.href = "/";
+            }}
             style={{
               padding: "0.5rem 1rem",
               borderRadius: "0.375rem",

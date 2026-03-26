@@ -295,7 +295,9 @@ export function StepForm() {
         }
       }
     });
-    toUpdate.forEach((d) => updateNode(d.id, d));
+    toUpdate.forEach((d) => {
+      updateNode(d.id, d);
+    });
     markDirty(toUpdate.map((d) => d.id));
     setSelectedNode(null);
   }

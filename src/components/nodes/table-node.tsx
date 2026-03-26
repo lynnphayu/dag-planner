@@ -53,7 +53,7 @@ const TableNode = ({ data, id, onEdit, removeNode }: TableNodeProps) => {
         }
       });
     }
-  }, [nodeId, reactFlowInstance, data.name]);
+  }, [nodeId, reactFlowInstance]);
 
   return (
     <>

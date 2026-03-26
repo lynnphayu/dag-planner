@@ -2,14 +2,14 @@
 
 import "./variable-input.css";
 import * as React from "react";
+import { type DAGVariable, useDAGVariables } from "@/hooks/use-dag-variables";
 import { cn } from "@/lib/utils";
-import { useDAGVariables, type DAGVariable } from "@/hooks/use-dag-variables";
 import {
-  normalizeToString,
   buildInnerHTML,
-  readRawFromNode,
-  findTextNodeBeforeCursor,
   createChipElement,
+  findTextNodeBeforeCursor,
+  normalizeToString,
+  readRawFromNode,
 } from "./variable-input-utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -358,6 +358,7 @@ export function VariableInput({
         ref={editorRef}
         id={id}
         contentEditable
+        tabIndex={0}
         suppressContentEditableWarning
         role="textbox"
         aria-multiline="true"

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
+import { useTables } from "@/hooks/dag";
 import type { TFormControl } from "../step-form";
 import Fields from "./fields";
-import { useTables } from "@/hooks/dag";
 
 export function InsertForm({ control }: { control: TFormControl }) {
   const { data: fetchedTables } = useTables();
