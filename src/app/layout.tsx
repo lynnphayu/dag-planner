@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Inconsolata } from "next/font/google";
 import { ThemeProvider } from "next-themes";
@@ -33,16 +34,18 @@ export default function RootLayout({
         className={`${inconsolata.variable} antialiased`}
         style={{ padding: 0, margin: 0 }}
       >
-        <I18nProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            disableTransitionOnChange
-          >
-            <GlobalErrorBoundary>{children}</GlobalErrorBoundary>
-            <Toaster />
-          </ThemeProvider>
-        </I18nProvider>
+        <ClerkProvider>
+          <I18nProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="dark"
+              disableTransitionOnChange
+            >
+              <GlobalErrorBoundary>{children}</GlobalErrorBoundary>
+              <Toaster />
+            </ThemeProvider>
+          </I18nProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

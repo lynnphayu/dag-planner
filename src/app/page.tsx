@@ -1,9 +1,15 @@
+import { auth } from "@clerk/nextjs/server";
+import { UserButton } from "@clerk/nextjs";
 import { Workflow } from "lucide-react";
 import { HomeClient } from "@/app/components/home";
 import { ModeToggle } from "@/components/theme-swticher";
-import client from "@/lib/client";
+import { createClient } from "@/lib/client";
 
 export default async function Home() {
+  const token = await auth().then((a) => a.getToken());
+  const client = createClient(
+    token ? { Authorization: `Bearer ${token}` } : undefined,
+  );
   const dags = await client.fetchDAGs();
 
   return (
@@ -18,7 +24,10 @@ export default async function Home() {
               DAG Runner
             </span>
           </div>
-          <ModeToggle />
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            <UserButton />
+          </div>
         </div>
       </header>
 

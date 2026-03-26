@@ -1,4 +1,6 @@
+import { useAuth } from "@clerk/nextjs";
 import type { Edge, Node } from "@xyflow/react";
+import { useCallback } from "react";
 import { toast } from "sonner";
 import type { SWRConfiguration } from "swr";
 import useSWR, { useSWRConfig } from "swr";
@@ -68,30 +70,68 @@ export type Adapter = {
 } & (HTTPAdapter | CronAdapter);
 
 const { ENDPOINTS } = clientAPIConfig;
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-export const useTables = (config?: SWRConfiguration<Tables>) =>
-  useSWR<Tables>(ENDPOINTS.TABLES.WITH_DETAILS, fetcher, config);
+function useAuthFetcher() {
+  const { getToken } = useAuth();
+  return useCallback(
+    async (url: string) => {
+      const token = await getToken();
+      return fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }).then((res) => res.json());
+    },
+    [getToken],
+  );
+}
 
-export const useTable = (name: string) =>
-  useSWR<{ data: Record<string, string> }>(
+export const useTables = (config?: SWRConfiguration<Tables>) => {
+  const fetcher = useAuthFetcher();
+  return useSWR<Tables>(ENDPOINTS.TABLES.WITH_DETAILS, fetcher, config);
+};
+
+export const useTable = (name: string) => {
+  const fetcher = useAuthFetcher();
+  return useSWR<{ data: Record<string, string> }>(
     ENDPOINTS.TABLES.DETAIL(name),
     fetcher,
   );
+};
 
-export const useDAG = (id: string, config?: SWRConfiguration<DAGModel>) =>
-  useSWR<DAGModel>(ENDPOINTS.DAGS.DETAIL(id), fetcher, config);
+export const useDAG = (id: string, config?: SWRConfiguration<DAGModel>) => {
+  const fetcher = useAuthFetcher();
+  return useSWR<DAGModel>(ENDPOINTS.DAGS.DETAIL(id), fetcher, config);
+};
 
-export const useDAGs = () => useSWR<DAGModel[]>(ENDPOINTS.DAGS.LIST, fetcher);
+export const useDAGs = () => {
+  const fetcher = useAuthFetcher();
+  return useSWR<DAGModel[]>(ENDPOINTS.DAGS.LIST, fetcher);
+};
 
-export const useDAGVersions = (id: string) =>
-  useSWR<DAGVersion[]>(ENDPOINTS.DAGS.VERSIONS(id), fetcher);
+export const useDAGVersions = (id: string) => {
+  const fetcher = useAuthFetcher();
+  return useSWR<DAGVersion[]>(ENDPOINTS.DAGS.VERSIONS(id), fetcher);
+};
 
 export function useDAGMutations() {
   const { mutate } = useSWRConfig();
+  const { getToken } = useAuth();
+
+  const authFetch = useCallback(
+    async (url: string, options: RequestInit = {}) => {
+      const token = await getToken();
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    },
+    [getToken],
+  );
 
   const createDAG = async (dag: Omit<DAGModel, "id">) =>
-    fetch(ENDPOINTS.DAGS.LIST, {
+    authFetch(ENDPOINTS.DAGS.LIST, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dag),
@@ -104,7 +144,7 @@ export function useDAGMutations() {
       .catch((e) => toast.error(`Error creating DAG - ${e.message}`));
 
   const updateDAG = async (id: string, dag: Partial<DAGModel>) =>
-    fetch(ENDPOINTS.DAGS.DETAIL(id), {
+    authFetch(ENDPOINTS.DAGS.DETAIL(id), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(dag),
@@ -121,7 +161,7 @@ export function useDAGMutations() {
     id: string,
     inputData?: Record<string, unknown>,
   ) => {
-    const response = await fetch(ENDPOINTS.DAGS.EXECUTE(id), {
+    const response = await authFetch(ENDPOINTS.DAGS.EXECUTE(id), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(inputData || {}),
@@ -150,7 +190,7 @@ export function useDAGMutations() {
   };
 
   const publishDAG = async (id: string) => {
-    const response = await fetch(ENDPOINTS.DAGS.PUBLISH(id), {
+    const response = await authFetch(ENDPOINTS.DAGS.PUBLISH(id), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
