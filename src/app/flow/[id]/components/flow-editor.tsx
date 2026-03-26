@@ -10,6 +10,7 @@ import {
   Panel,
   ReactFlow,
 } from "@xyflow/react";
+import { ModeToggle } from "@/components/theme-swticher";
 import { type NodeData, useFlowStore } from "@/store/flow-store";
 
 import "@xyflow/react/dist/style.css";
@@ -229,7 +230,8 @@ export function FlowComponent({
           Versions
         </Button>
       </Panel>
-      <Panel position="top-right">
+      <Panel position="top-right" className="flex items-center gap-2">
+        <ModeToggle />
         <Button onClick={handleSave} disabled={isSaving || !dag?.id}>
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? "Saving..." : "Save"}

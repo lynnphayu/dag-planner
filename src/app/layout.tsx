@@ -3,7 +3,7 @@ import { Inconsolata } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { GlobalErrorBoundary } from "@/components/global-error-boundary";
 import { I18nProvider } from "@/components/i18n-provider";
-import { ModeToggle } from "@/components/theme-swticher";
+
 import { Toaster } from "@/components/ui/sonner";
 import "@/i18n";
 import "./globals.css";
@@ -39,12 +39,7 @@ export default function RootLayout({
             defaultTheme="dark"
             disableTransitionOnChange
           >
-            <div className="absolute right-4 top-4 z-10">
-              <ModeToggle />
-            </div>
-            <GlobalErrorBoundary>
-              {children}
-            </GlobalErrorBoundary>
+            <GlobalErrorBoundary>{children}</GlobalErrorBoundary>
             <Toaster />
           </ThemeProvider>
         </I18nProvider>

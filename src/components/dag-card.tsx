@@ -1,4 +1,5 @@
 import { Boxes, ChevronRight, Plug, Workflow } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -17,12 +18,19 @@ interface DAGCardProps {
 
 const ADAPTER_TYPES = new Set(["http_adapter", "schedular_adapter"]);
 
+const STATUS_STYLES: Record<string, string> = {
+  published: "bg-emerald-500",
+  draft: "bg-amber-500",
+};
+
 export function DAGCard({ dag, onClick }: DAGCardProps) {
   const stepNodes = dag.nodes.filter((n) => !ADAPTER_TYPES.has(n.data.type));
   const adapterCount = dag.nodes.filter((n) =>
     ADAPTER_TYPES.has(n.data.type),
   ).length;
   const uniqueStepTypes = [...new Set(stepNodes.map((n) => n.data.type))];
+
+  const statusDotClass = STATUS_STYLES[dag.status] ?? "bg-muted-foreground/40";
 
   return (
     <Card
@@ -41,10 +49,18 @@ export function DAGCard({ dag, onClick }: DAGCardProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/20 transition-transform duration-300 group-hover:scale-[1.03]">
               <Workflow className="h-4 w-4" />
             </div>
-            <div className="min-w-0">
-              <CardTitle className="truncate text-sm sm:text-base transition-colors group-hover:text-primary">
-                {dag.name || dag.id}
-              </CardTitle>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    "mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                    statusDotClass,
+                  )}
+                />
+                <CardTitle className="truncate text-sm sm:text-base transition-colors group-hover:text-primary">
+                  {dag.name || dag.id}
+                </CardTitle>
+              </div>
             </div>
           </div>
           <CardAction>
