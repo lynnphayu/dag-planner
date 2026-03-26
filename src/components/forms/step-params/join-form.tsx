@@ -19,13 +19,19 @@ export function JoinForm({ control }: { control: TFormControl }) {
         name="data.meta.joinType"
         options={joinTypes}
       />
-      <Fields.Text label="Left Table" control={control} name="data.meta.left" />
-      <Fields.Text
-        label="Right Table"
+      <Fields.Variable
+        label="Left"
+        control={control}
+        name="data.meta.left"
+        singleLine
+      />
+      <Fields.Variable
+        label="Right"
         control={control}
         name="data.meta.right"
+        singleLine
       />
-      <Fields.Json label="On" control={control} name="data.meta.on" />
+      <Fields.Variable label="On" control={control} name="data.meta.on" />
     </>
   );
 }

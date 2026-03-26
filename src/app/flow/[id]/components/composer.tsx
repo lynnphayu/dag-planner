@@ -81,19 +81,18 @@ export function FlowEditorComposer({ hydrate }: FlowEditorProps) {
       <ResizablePanelGroup direction="horizontal" className="absolute right-0">
         <ResizablePanel>
           <ReactFlowProvider>
-            <div className="min-w-[50vw] h-full">
+            <div className="min-w-[50vw] h-full ">
               <SheetContent
-                className="border m-auto mr-6 h-19/20 rounded-sm w-[480px] sm:w-[640px]"
+                className="border m-auto rounded-sm w-[540px] sm:w-[720px] overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
                 side="left"
               >
                 <SheetHeader>
-                  <SheetTitle>{selectedNode?.data.id}</SheetTitle>
-                  <SheetDescription>
-                    Make changes to your DAG node. All changes will be
-                    automatically saved.
-                  </SheetDescription>
-                  <StepForm key={selectedNode?.id} />
+                  <SheetTitle>{selectedNode?.data.name}</SheetTitle>
+                  <SheetDescription>{selectedNode?.data.id}</SheetDescription>
                 </SheetHeader>
+                <div className="p-4">
+                  <StepForm key={selectedNode?.id} />
+                </div>
               </SheetContent>
               <FlowComponent
                 onOpenVersions={() => setIsVersionsOpen(true)}

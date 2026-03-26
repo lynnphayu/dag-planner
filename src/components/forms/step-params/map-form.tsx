@@ -3,7 +3,7 @@ import Fields from "./fields";
 
 export function MapForm({ control }: { control: TFormControl }) {
   return (
-    <Fields.Json
+    <Fields.Variable
       label="Map Function"
       control={control}
       name="data.meta.function"

@@ -25,7 +25,7 @@ export function QueryForm({ control }: { control: TFormControl }) {
         name="data.meta.table"
         options={tables}
       />
-      <Fields.Json label="Where" control={control} name="data.meta.where" />
+      <Fields.Variable label="Where" control={control} name="data.meta.where" />
       <Fields.Multiselect
         label="Select"
         control={control}

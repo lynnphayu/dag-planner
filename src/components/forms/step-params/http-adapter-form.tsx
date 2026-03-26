@@ -16,11 +16,15 @@ export function HTTPAdapterForm({ control }: { control: TFormControl }) {
           label: method.toUpperCase(),
         }))}
       />
-      <Fields.Text label="Path" control={control} name="data.meta.path" />
-      <Fields.Json label="Headers" control={control} name="data.meta.headers" />
-      <Fields.Json label="Body" control={control} name="data.meta.body" />
-      <Fields.Json label="Query" control={control} name="data.meta.query" />
-      <Fields.Json
+      <Fields.Variable label="Path" control={control} name="data.meta.path" />
+      <Fields.Variable
+        label="Headers"
+        control={control}
+        name="data.meta.headers"
+      />
+      <Fields.Variable label="Body" control={control} name="data.meta.body" />
+      <Fields.Variable label="Query" control={control} name="data.meta.query" />
+      <Fields.Variable
         label="Response"
         control={control}
         name="data.meta.response"
@@ -32,7 +36,7 @@ export function HTTPAdapterForm({ control }: { control: TFormControl }) {
         options={AuthType.options.map((t) => ({ value: t, label: t }))}
       />
       {authType !== "none" && (
-        <Fields.Json label="Auth" control={control} name="data.meta.auth" />
+        <Fields.Variable label="Auth" control={control} name="data.meta.auth" />
       )}
     </>
   );

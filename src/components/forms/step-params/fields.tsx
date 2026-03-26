@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { VariableInput } from "@/components/ui/variable-input";
 import type { StepFormInput, TFormControl } from "../step-form";
 
 const fields = {
@@ -185,6 +186,42 @@ const fields = {
                         value,
                       }))
                 }
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  },
+  Variable: ({
+    control,
+    name,
+    label,
+    placeholder,
+    singleLine,
+  }: {
+    control: TFormControl;
+    name: FieldPath<StepFormInput>;
+    label: string;
+    placeholder?: string;
+    singleLine?: boolean;
+  }) => {
+    return (
+      <FormField
+        control={control}
+        name={name}
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{label}</FormLabel>
+            <FormControl>
+              <VariableInput
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                placeholder={placeholder ?? "Type $ to insert a variable\u2026"}
+                id={field.name}
+                singleLine={singleLine}
               />
             </FormControl>
             <FormMessage />

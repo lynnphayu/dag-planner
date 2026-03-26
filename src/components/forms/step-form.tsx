@@ -338,7 +338,11 @@ export function StepForm() {
                 ]
           }
         />
-        <Fields.Json control={form.control} name="data.input" label="Input" />
+        <Fields.Variable
+          control={form.control}
+          name="data.input"
+          label="Input"
+        />
         {form.watch("data.type") === "query" && (
           <QueryForm control={form.control} />
         )}

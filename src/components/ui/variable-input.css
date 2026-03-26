@@ -1,0 +1,32 @@
+.var-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: default;
+    user-select: none;
+    white-space: nowrap;
+    vertical-align: middle;
+    line-height: 1.5;
+    margin: 0 2px;
+}
+
+.var-chip-input {
+    background-color: rgb(59 130 246 / 0.15);
+    color: rgb(96 165 250);
+    border: 1px solid rgb(59 130 246 / 0.3);
+}
+
+.var-chip-result {
+    background-color: rgb(139 92 246 / 0.15);
+    color: rgb(167 139 250);
+    border: 1px solid rgb(139 92 246 / 0.3);
+}
+
+.variable-editor[data-empty]::before {
+    content: attr(data-placeholder);
+    color: var(--muted-foreground);
+    pointer-events: none;
+}
