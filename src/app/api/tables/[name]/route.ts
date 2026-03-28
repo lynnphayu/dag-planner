@@ -1,10 +1,11 @@
-import type { NextRequest } from "next/server";
 import { serverAPIConfig } from "@/config/api";
+import { authenticatedFetch, withAuth } from "@/lib/auth";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ name: string }> },
-) {
-  const { name } = await params;
-  return fetch(serverAPIConfig.ENDPOINTS.TABLES.DETAIL(name));
-}
+export const GET = withAuth<"/api/tables/[name]">(
+  async (_request, { params, user }) => {
+    const { name } = await params;
+    return fetch(serverAPIConfig.ENDPOINTS.TABLES.DETAIL(name), {
+      headers: { "x-user-id": user.userId },
+    });
+  },
+);
