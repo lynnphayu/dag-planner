@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const serverEnvSchema = z.object({
   BACKEND_API_URL: z.string().url().default("http://localhost:3030/v1"),
-  NODE_ENV: z.enum(["development", "prod"]).default("development"),
+  NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 
 const clientEnvSchema = z.object({
