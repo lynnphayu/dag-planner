@@ -1,8 +1,8 @@
-import { clientAPIConfig } from "@/config/api";
+import { internalClientAPIConfig } from "@/config/api";
 import type { DAGModel, DAGVersion } from "@/hooks/dag";
 import type { Table } from "@/store/table-store";
 
-const { ENDPOINTS } = clientAPIConfig;
+const { ENDPOINTS } = internalClientAPIConfig;
 
 export function createClient(headers?: HeadersInit) {
   const get = (url: string) => fetch(url, { headers });

@@ -1,4 +1,7 @@
-import { clientEnv, serverEnv } from "./env";
+import { serverEnv } from "./env";
+
+const port = process.env.PORT ?? "3005";
+const internalAPIBase = `http://localhost:${port}/api`;
 
 const buildEndpoints = (baseUrl: string) => ({
   BASE_URL: baseUrl,
@@ -19,4 +22,5 @@ const buildEndpoints = (baseUrl: string) => ({
 });
 
 export const serverAPIConfig = buildEndpoints(serverEnv.BACKEND_API_URL);
-export const clientAPIConfig = buildEndpoints(clientEnv.NEXT_PUBLIC_API_URL);
+export const clientAPIConfig = buildEndpoints("/api");
+export const internalClientAPIConfig = buildEndpoints(internalAPIBase);
