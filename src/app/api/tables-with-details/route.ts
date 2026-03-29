@@ -1,5 +1,5 @@
 import { serverAPIConfig } from "@/config/api";
-import { authenticatedFetch, withAuth } from "@/lib/auth";
+import { withAuth } from "@/lib/auth";
 
 export const GET = withAuth<"/api/tables-with-details">(
   async (_request, { user }) => {
