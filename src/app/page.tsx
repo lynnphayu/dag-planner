@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
 import { UserButton } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 import { Workflow } from "lucide-react";
 import { HomeClient } from "@/app/components/home";
 import { ModeToggle } from "@/components/theme-swticher";

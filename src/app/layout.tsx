@@ -4,8 +4,8 @@ import { Inconsolata } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { GlobalErrorBoundary } from "@/components/global-error-boundary";
 import { I18nProvider } from "@/components/i18n-provider";
-
 import { Toaster } from "@/components/ui/sonner";
+import { syncAppUser } from "@/lib/sync-app-user";
 import "@/i18n";
 import "./globals.css";
 
@@ -19,11 +19,13 @@ export const metadata: Metadata = {
   description: "Manage and execute your directed acyclic graphs",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await syncAppUser();
+
   return (
     <html
       lang="en"
